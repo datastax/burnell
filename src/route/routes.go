@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/kafkaesque-io/burnell/src/middleware"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -19,8 +20,8 @@ type Route struct {
 // Routes list of HTTP Routes
 type Routes []Route
 
-// TokenServerRoutes definition
-var TokenServerRoutes = Routes{
+// EndpointRoutes definition
+var EndpointRoutes = Routes{
 	Route{
 		"token server",
 		http.MethodGet,
@@ -28,10 +29,8 @@ var TokenServerRoutes = Routes{
 		TokenSubjectHandler,
 		middleware.AuthVerifyJWT,
 	},
-}
 
-// PrometheusRoute definition
-var PrometheusRoute = Routes{
+	// this can be used as kubernetes readiness
 	Route{
 		"Prometeus metrics",
 		http.MethodGet,
@@ -39,61 +38,20 @@ var PrometheusRoute = Routes{
 		promhttp.Handler().ServeHTTP,
 		middleware.NoAuth,
 	},
-}
+	Route{
+		"Pulsar Admin",
+		"",
+		"/admin",
+		AdminProxyHandler,
+		middleware.AuthHeaderRequired,
+	},
 
-// ReceiverRoutes definition
-var ReceiverRoutes = Routes{
+	// this is for kubernetes liveness
 	Route{
 		"status",
 		"GET",
-		"/status",
+		"/liveness",
 		StatusPage,
 		middleware.AuthHeaderRequired,
-	},
-	Route{
-		"Receive",
-		"POST",
-		"/v1/firehose",
-		ReceiveHandler,
-		middleware.AuthHeaderRequired,
-	},
-}
-
-// RestRoutes definition
-var RestRoutes = Routes{
-	Route{
-		"Get a topic with key",
-		"GET",
-		"/v2/topic/{topicKey}",
-		GetTopicHandler,
-		middleware.AuthVerifyJWT,
-	},
-	Route{
-		"Get a topic",
-		"GET",
-		"/v2/topic",
-		GetTopicHandler,
-		middleware.AuthVerifyJWT,
-	},
-	Route{
-		"Update a topic",
-		"POST",
-		"/v2/topic",
-		UpdateTopicHandler,
-		middleware.AuthVerifyJWT,
-	},
-	Route{
-		"Delete a topic with key",
-		"DELETE",
-		"/v2/topic/{topicKey}",
-		DeleteTopicHandler,
-		middleware.AuthVerifyJWT,
-	},
-	Route{
-		"Delete a topic",
-		"DELETE",
-		"/v2/topic",
-		DeleteTopicHandler,
-		middleware.AuthVerifyJWT,
 	},
 }

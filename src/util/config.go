@@ -11,41 +11,23 @@ import (
 	"unicode"
 
 	"github.com/ghodss/yaml"
-	"github.com/pulsar-beam/src/icrypto"
+	"github.com/kafkaesque-io/burnell/src/icrypto"
 )
 
 // DefaultConfigFile - default config file
 // it can be overwritten by env variable PULSAR_BEAM_CONFIG
-const DefaultConfigFile = "../config/pulsar_beam.yml"
+const DefaultConfigFile = "../config/burnell.yml"
 
 // Configuration - this server's configuration
 type Configuration struct {
-	PORT    string `json:"PORT"`
-	CLUSTER string `json:"CLUSTER"`
-	User    string `json:"User"`
-	Pass    string `json:"Pass"`
-
-	// DbName is the database name in mongo or topic name
-	DbName string `json:"DbName"`
-
-	// DbPassword is either password or token for the database
-	DbPassword string `json:"DbPassword"`
-
-	// DbConnectionStr can be mongo url or pulsar url
-	DbConnectionStr string `json:"DbConnectionStr"`
+	PORT     string `json:"PORT"`
+	CLUSTER  string `json:"CLUSTER"`
+	ProxyURL string `json:"ProxyURL"`
 
 	// PbDbType is the database type mongo or pulsar
-	PbDbType         string `json:"PbDbType"`
 	PulsarPublicKey  string `json:"PulsarPublicKey"`
 	PulsarPrivateKey string `json:"PulsarPrivateKey"`
 	SuperRoles       string `json:"SuperRoles"`
-
-	// Webhook consumers pool checked interval to stop deleted consumers and start new ones
-	// default value 180s
-	PbDbInterval string `json:"PbDbInterval"`
-
-	// Pulsar CA certificate key store
-	TrustStore string `json:"TrustStore"`
 }
 
 // Config - this server's configuration instance
@@ -100,7 +82,7 @@ func ReadConfigFile(configFile string) {
 		}
 	}
 
-	log.Println(Config.PORT, Config.PbDbType, Config.PbDbInterval)
+	log.Println(Config.PORT, Config.ProxyURL)
 }
 
 //GetConfig returns a reference to the Configuration

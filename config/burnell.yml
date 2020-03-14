@@ -1,0 +1,6 @@
+---
+PORT: 3000
+CLUSTER: localhost
+ProxyURL: http://localhost:8080
+PulsarPublicKey: ./unit-test/example_public_key.pub
+PulsarPrivateKey: ./unit-test/example_private_key

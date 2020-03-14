@@ -24,17 +24,17 @@ func main() {
 
 	route.Init()
 
-		c := cors.New(cors.Options{
-			AllowedOrigins:   []string{"http://localhost:3000", "http://localhost:8080"},
-			AllowCredentials: true,
-			AllowedHeaders:   []string{"Authorization", "PulsarTopicUrl"},
-		})
+	c := cors.New(cors.Options{
+		AllowedOrigins:   []string{"http://localhost:3000", "http://localhost:8080"},
+		AllowCredentials: true,
+		AllowedHeaders:   []string{"Authorization", "PulsarTopicUrl"},
+	})
 
-		router := route.NewRouter(mode)
+	router := route.NewRouter(mode)
 
-		handler := c.Handler(router)
-		config := util.GetConfig()
-		port := util.AssignString(config.PORT, "8080")
-		log.Fatal(http.ListenAndServe(":"+port, handler))
+	handler := c.Handler(router)
+	config := util.GetConfig()
+	port := util.AssignString(config.PORT, "8080")
+	log.Fatal(http.ListenAndServe(":"+port, handler))
 
 }
