@@ -12,7 +12,10 @@ import (
 	"github.com/kafkaesque-io/burnell/src/util"
 )
 
-const subDelimiter = "-"
+const (
+	subDelimiter = "-"
+	injectedSubs = "injectedSubs"
+)
 
 // AdminProxyHandler is Pulsar admin REST api's proxy handler
 type AdminProxyHandler struct {
@@ -68,6 +71,18 @@ func DirectProxyHandler(w http.ResponseWriter, r *http.Request) {
 
 	proxy.ServeHTTP(w, r)
 
+}
+
+// VerifyTenantProxyHandler verifies subject before sending to the proxy URL
+func VerifyTenantProxyHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	if tenantName, ok := vars["tenant"]; ok {
+		if VerifySubject(tenantName, r.Header.Get(injectedSubs)) {
+			DirectProxyHandler(w, r)
+		}
+	}
+	w.WriteHeader(http.StatusForbidden)
+	return
 }
 
 // VerifySubject verifies the subject can meet the requirement.
