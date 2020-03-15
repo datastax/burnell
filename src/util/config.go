@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"log"
+	"net/url"
 	"os"
 	"reflect"
+	"strings"
 
 	"unicode"
 
@@ -20,9 +22,10 @@ const DefaultConfigFile = "../config/burnell.yml"
 
 // Configuration - this server's configuration
 type Configuration struct {
-	PORT     string `json:"PORT"`
-	CLUSTER  string `json:"CLUSTER"`
-	ProxyURL string `json:"ProxyURL"`
+	PORT        string `json:"PORT"`
+	CLUSTER     string `json:"CLUSTER"`
+	ProxyURL    string `json:"ProxyURL"`
+	ProxyPrefix string `json:"ProxyPrefix"`
 
 	// PbDbType is the database type mongo or pulsar
 	PulsarPublicKey  string `json:"PulsarPublicKey"`
@@ -36,6 +39,13 @@ var Config Configuration
 // JWTAuth is the RSA key pair for sign and verify JWT
 var JWTAuth *icrypto.RSAKeyPair
 
+var ProxyURL *url.URL
+
+var ProxyPrefix string
+
+// SuperRoles is super and admin roles for Pulsar
+var SuperRoles []string
+
 // Init initializes configuration
 func Init() {
 	configFile := AssignString(os.Getenv("PULSAR_BEAM_CONFIG"), DefaultConfigFile)
@@ -43,6 +53,15 @@ func Init() {
 	ReadConfigFile(configFile)
 
 	JWTAuth = icrypto.NewRSAKeyPair(Config.PulsarPrivateKey, Config.PulsarPublicKey)
+	if uri, err := url.ParseRequestURI(Config.ProxyURL); err != nil {
+		log.Fatal(err)
+		ProxyURL = uri
+	}
+	ProxyPrefix = Config.ProxyPrefix
+
+	for _, v := range strings.Split(Config.SuperRoles, ",") {
+		SuperRoles = append(SuperRoles, strings.TrimSpace(v))
+	}
 }
 
 // ReadConfigFile reads configuration file.

@@ -6,25 +6,22 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/kafkaesque-io/burnell/src/middleware"
+	. "github.com/kafkaesque-io/burnell/src/middleware"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // NewRouter - create new router for HTTP routing
-func NewRouter(mode *string) *mux.Router {
+func NewRouter() *mux.Router {
 
 	router := mux.NewRouter().StrictSlash(true)
-	for _, route := range EndpointRoutes {
-		var handler http.Handler
 
-		handler = route.HandlerFunc
-		handler = Logger(handler, route.Name)
+	router.Path("/liveness").Methods(http.MethodGet).Name("liveness").Handler(NoAuth(Logger(http.HandlerFunc(StatusPage), "liveness")))
+	router.Path("/subject").Methods(http.MethodGet).Name("token server").Handler(NoAuth(Logger(http.HandlerFunc(StatusPage), "liveness")))
+	router.Path("/metrics").Methods(http.MethodGet).Name("metrics").Handler(NoAuth(promhttp.Handler()))
 
-		router.
-			Methods(route.Method).
-			Path(route.Pattern).
-			Name(route.Name).
-			Handler(route.AuthFunc(handler))
+	router.PathPrefix("/admin/bookies/racks-info").Methods(http.MethodGet, http.MethodPost, http.MethodDelete).
+		Handler(SuperRoleRequired(http.HandlerFunc(DirectProxyHandler)))
 
-	}
 	// TODO rate limit can be added per route basis
 	router.Use(middleware.LimitRate)
 

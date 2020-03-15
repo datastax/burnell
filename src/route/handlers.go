@@ -12,17 +12,16 @@ import (
 	"github.com/kafkaesque-io/burnell/src/util"
 )
 
-var superRoles []string
+const subDelimiter = "-"
 
-var proxyURL *url.URL
+// AdminProxyHandler is Pulsar admin REST api's proxy handler
+type AdminProxyHandler struct {
+	Destination *url.URL
+	Prefix      string
+}
 
 // Init initializes database
 func Init() {
-	if uri, err := url.ParseRequestURI(util.Config.ProxyURL); err != nil {
-		log.Fatal(err)
-	} else {
-		proxyURL = uri
-	}
 }
 
 // TokenSubjectHandler issues new token
@@ -34,7 +33,7 @@ func TokenSubjectHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if util.StrContains(superRoles, util.AssignString(r.Header.Get("injectedSubs"), "BOGUSROLE")) {
+	if util.StrContains(util.SuperRoles, util.AssignString(r.Header.Get("injectedSubs"), "BOGUSROLE")) {
 		tokenString, err := util.JWTAuth.GenerateToken(subject)
 		if err != nil {
 			util.ResponseErrorJSON(errors.New("failed to generate token"), w, http.StatusInternalServerError)
@@ -54,32 +53,44 @@ func StatusPage(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-// AdminProxyHandler - Pulsar admin REST API reverse proxy
-func AdminProxyHandler(w http.ResponseWriter, r *http.Request) {
+// DirectProxyHandler - Pulsar admin REST API reverse proxy
+func DirectProxyHandler(w http.ResponseWriter, r *http.Request) {
 
-	proxy := httputil.NewSingleHostReverseProxy(proxyURL)
+	log.Printf("%s %v\n", strings.TrimPrefix(r.URL.RequestURI(), "/admin"), util.ProxyURL.Host)
+
+	proxy := httputil.NewSingleHostReverseProxy(util.ProxyURL)
 	// Update the headers to allow for SSL redirection
-	r.URL.Host = proxyURL.Host
-	r.URL.Scheme = proxyURL.Scheme
+	r.URL.Host = util.ProxyURL.Host
+	r.URL.Scheme = util.ProxyURL.Scheme
 	r.Header.Set("X-Forwarded-Host", r.Header.Get("Host"))
 	r.Header.Set("X-Proxy", "burnell")
-	r.Host = proxyURL.Host
+	r.Host = util.ProxyURL.Host
 
 	proxy.ServeHTTP(w, r)
+
 }
 
 // VerifySubject verifies the subject can meet the requirement.
-func VerifySubject(topicFN, tokenSub string) bool {
-	parts := strings.Split(topicFN, "/")
-	if len(parts) < 3 {
-		return false
+func VerifySubject(requiredSubject, tokenSubjects string) bool {
+	for _, v := range strings.Split(tokenSubjects, ",") {
+		if util.StrContains(util.SuperRoles, v) {
+			return true
+		}
+		sub := extractSubject(v)
+		if sub != "" && requiredSubject == sub {
+			return true
+		}
 	}
-	tenant := parts[2]
-	if len(tenant) < 1 {
-		log.Printf(" auth verify tenant %s token sub %s", tenant, tokenSub)
-		return false
-	}
-	subjects := append(superRoles, tenant)
+	return false
+}
 
-	return util.StrContains(subjects, tokenSub)
+func extractSubject(tokenSub string) string {
+	// expect - in subject unless it is superuser
+	parts := strings.Split(tokenSub, subDelimiter)
+	if len(parts) < 2 {
+		return ""
+	}
+
+	validLength := len(parts) - 1
+	return strings.Join(parts[:validLength], subDelimiter)
 }

@@ -30,7 +30,7 @@ func main() {
 		AllowedHeaders:   []string{"Authorization", "PulsarTopicUrl"},
 	})
 
-	router := route.NewRouter(mode)
+	router := route.NewRouter()
 
 	handler := c.Handler(router)
 	config := util.GetConfig()

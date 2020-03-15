@@ -34,6 +34,22 @@ func AuthVerifyJWT(next http.Handler) http.Handler {
 	})
 }
 
+// SuperRoleRequired ensures token has the super user subject
+func SuperRoleRequired(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		tokenStr := strings.TrimSpace(strings.Replace(r.Header.Get("Authorization"), "Bearer", "", 1))
+		subject, err := util.JWTAuth.GetTokenSubject(tokenStr)
+
+		if err == nil && util.StrContains(util.SuperRoles, subject) {
+			log.Println("Authenticated")
+			next.ServeHTTP(w, r)
+		} else {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		}
+
+	})
+}
+
 // AuthHeaderRequired is a very weak auth to verify token existence only.
 func AuthHeaderRequired(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
