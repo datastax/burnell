@@ -39,8 +39,10 @@ var Config Configuration
 // JWTAuth is the RSA key pair for sign and verify JWT
 var JWTAuth *icrypto.RSAKeyPair
 
+// ProxyURL is the destination URL for the proxy
 var ProxyURL *url.URL
 
+// ProxyPrefix is the route prefix for proxy routing
 var ProxyPrefix string
 
 // SuperRoles is super and admin roles for Pulsar

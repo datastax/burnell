@@ -15,13 +15,6 @@ var mode = flag.String("mode", "hybrid", "server running mode")
 
 func main() {
 	util.Init()
-
-	flag.Parse()
-	log.Println("start server mode ", *mode)
-	if !util.IsValidMode(mode) {
-		log.Panic("Unsupported server mode")
-	}
-
 	route.Init()
 
 	c := cors.New(cors.Options{
