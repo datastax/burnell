@@ -31,8 +31,8 @@ func (z *ZookeeperDriver) Conn(hosts string) error {
 }
 
 // GetPolicy gets the policy
-func (z *ZookeeperDriver) GetPolicy(tenantName string) TenantPolicy {
-	return TenantPolicy{}
+func (z *ZookeeperDriver) GetPlanPolicy(tenantName string) PlanPolicy {
+	return PlanPolicy{}
 }
 
 // Evaluate gets the policy
