@@ -30,7 +30,7 @@ func (z *ZookeeperDriver) Conn(hosts string) error {
 	return nil
 }
 
-// GetPolicy gets the policy
+// GetPlanPolicy gets the policy
 func (z *ZookeeperDriver) GetPlanPolicy(tenantName string) PlanPolicy {
 	return PlanPolicy{}
 }
