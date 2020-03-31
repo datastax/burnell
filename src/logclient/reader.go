@@ -24,6 +24,14 @@ type FunctionLogResponse struct {
 	ForwardPosition  int64
 }
 
+// FunctionLogRequest is HTTP resquest object
+type FunctionLogRequest struct {
+	Bytes            int64  `json:"bytes"`
+	BackwardPosition int64  `json:"backwardPosition"`
+	ForwardPosition  int64  `json:"forwardPosition"`
+	Direction        string `json:"direction"`
+}
+
 // FunctionType is the object encapsulates all the function attributes
 type FunctionType struct {
 	Tenant           string
@@ -175,7 +183,7 @@ func FunctionTopicWatchDog() {
 
 // GetFunctionLog gets the logs from the funcion worker process
 // Since the function may get reassigned after restart, we will establish the connection every time the log request is being made.
-func GetFunctionLog(functionName string, rd string) (FunctionLogResponse, error) {
+func GetFunctionLog(functionName string, rd FunctionLogRequest) (FunctionLogResponse, error) {
 	// var funcWorker string
 	function, ok := ReadFunctionMap(functionName)
 	if !ok {
@@ -183,7 +191,7 @@ func GetFunctionLog(functionName string, rd string) (FunctionLogResponse, error)
 	}
 	// Set up a connection to the server.
 	address := function.FunctionWorkerID + util.AssignString(util.GetConfig().LogServerPort, logstream.DefaultLogServerPort)
-	// fmt.Printf("found function %s\n", address)
+	fmt.Printf("found function %s\n", address)
 	// address = logstream.DefaultLogServerPort
 	conn, err := grpc.Dial(address, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
@@ -194,10 +202,17 @@ func GetFunctionLog(functionName string, rd string) (FunctionLogResponse, error)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
+
+	var bytes int64 = 500
+	if rd.Bytes > 0 {
+		bytes = rd.Bytes
+	}
 	req := &logstream.ReadRequest{
-		File:      logstream.FunctionLogPath(function.Tenant, function.Namespace, function.FunctionName, 0),
-		Direction: requestDirection(rd),
-		Bytes:     500,
+		File:          logstream.FunctionLogPath(function.Tenant, function.Namespace, function.FunctionName, 0),
+		Direction:     requestDirection(rd.Direction),
+		Bytes:         bytes,
+		ForwardIndex:  rd.ForwardPosition,
+		BackwardIndex: rd.BackwardPosition,
 	}
 	res, err := c.Read(ctx, req)
 	if err != nil {

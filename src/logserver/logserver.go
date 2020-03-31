@@ -6,11 +6,13 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net"
 	"os"
 
 	pb "github.com/kafkaesque-io/burnell/src/logstream"
+	"github.com/kafkaesque-io/burnell/src/util"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
@@ -64,14 +66,15 @@ func (f *FileReader) Close() {
 func (f *FileReader) ReadBackward(step int64) (string, int64, error) {
 	bStep := readStep
 	if step > 0 {
-		bStep = readStep
+		bStep = step
 	}
+	fmt.Printf("steps %d %d\n", bStep, step)
 	buf := make([]byte, bStep)
 	_, err := f.file.ReadAt(buf, f.backwardPos-readStep)
 	if err != nil {
 		return "", 0, err
 	}
-	f.backwardPos = f.backwardPos - readStep
+	f.backwardPos = f.backwardPos - bStep
 	return string(buf), f.backwardPos, nil
 }
 
@@ -79,7 +82,7 @@ func (f *FileReader) ReadBackward(step int64) (string, int64, error) {
 func (f *FileReader) ReadForward(step int64) (string, int64, error) {
 	bStep := readStep
 	if step > 0 {
-		bStep = readStep
+		bStep = step
 	}
 	newEOFPos, err := f.file.Seek(0, 2)
 	numNewBytes := newEOFPos - f.forwardPos
@@ -109,6 +112,7 @@ func (s *server) Read(ctx context.Context, in *pb.ReadRequest) (*pb.LogLines, er
 		if err != nil {
 			return nil, err
 		}
+		fmt.Printf("backwardPos %d forwardPos %d\n", r.backwardPos, r.forwardPos)
 		return &pb.LogLines{Logs: txt, ForwardIndex: r.forwardPos, BackwardIndex: r.backwardPos}, nil
 	}
 	txt, _, err = r.ReadForward(in.GetBytes())
@@ -121,7 +125,7 @@ func (s *server) Read(ctx context.Context, in *pb.ReadRequest) (*pb.LogLines, er
 }
 
 func main() {
-	listener, err := net.Listen("tcp", pb.LogServerPort)
+	listener, err := net.Listen("tcp", util.AssignString(util.GetConfig().LogServerPort, pb.DefaultLogServerPort))
 	if err != nil {
 		log.Fatalln(err)
 	}

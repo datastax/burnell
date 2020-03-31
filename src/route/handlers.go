@@ -94,25 +94,31 @@ func FunctionLogsHandler(w http.ResponseWriter, r *http.Request) {
 	namespace, ok2 := vars["namespace"]
 	funcName, ok3 := vars["function"]
 	// fmt.Printf("%s, %s %s\n", tenant, namespace, funcName)
-	if ok && ok2 && ok3 {
-		clientRes, err := logclient.GetFunctionLog(tenant+namespace+funcName, "backward")
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		// fmt.Printf("pos %d, %d\n", clientRes.BackwardPosition, clientRes.ForwardPosition)
-		jsonResponse, err := json.Marshal(clientRes)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write(jsonResponse)
+	if !(ok && ok2 && ok3) {
+		w.WriteHeader(http.StatusUnprocessableEntity)
 		return
 	}
-	w.WriteHeader(http.StatusUnprocessableEntity)
+
+	var reqObj logclient.FunctionLogRequest
+	decoder := json.NewDecoder(r.Body)
+	defer r.Body.Close()
+	decoder.Decode(&reqObj)
+
+	clientRes, err := logclient.GetFunctionLog(tenant+namespace+funcName, reqObj)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	// fmt.Printf("pos %d, %d\n", clientRes.BackwardPosition, clientRes.ForwardPosition)
+	jsonResponse, err := json.Marshal(clientRes)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(jsonResponse)
 	return
 }
 
