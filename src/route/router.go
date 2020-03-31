@@ -10,12 +10,18 @@ import (
 
 // NewRouter - create new router for HTTP routing
 func NewRouter() *mux.Router {
+	log.Println("init routes")
 
 	router := mux.NewRouter().StrictSlash(true)
 
 	router.Path("/liveness").Methods(http.MethodGet).Name("liveness").Handler(NoAuth(Logger(http.HandlerFunc(StatusPage), "liveness")))
 	router.Path("/subject").Methods(http.MethodGet).Name("token server").Handler(NoAuth(Logger(http.HandlerFunc(TokenSubjectHandler), "token server")))
 	router.Path("/metrics").Methods(http.MethodGet).Name("metrics").Handler(NoAuth(promhttp.Handler()))
+
+	// TODO: add two cases without tenant/namesapce and without tenant
+	router.Path("/function-logs/{tenant}/{namespace}/{function}").Methods(http.MethodGet).Name("function-logs").
+		Handler(NoAuth(http.HandlerFunc(FunctionLogsHandler)))
+		// Handler(AuthVerifyJWT(http.HandlerFunc(FunctionLogsHandler)))
 
 	router.PathPrefix("/admin/bookies/racks-info").Methods(http.MethodGet, http.MethodPost, http.MethodDelete).
 		Handler(SuperRoleRequired(http.HandlerFunc(DirectProxyHandler)))

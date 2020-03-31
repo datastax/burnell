@@ -1,0 +1,27 @@
+syntax = "proto3";
+package logstream;
+
+option go_package = ".;logstream";
+
+message ReadRequest {
+    enum Direction {
+        FORWARD = 0;
+        BACKWARD = 1;
+    }
+    string file = 1;
+    Direction direction = 2;
+    int64 bytes = 3;
+    int64 forwardIndex = 4;
+    int64 backwardIndex = 5;
+}
+message LogLines {
+    string logs = 1;
+    int64 forwardIndex = 2;
+    int64 backwardIndex = 3;
+}
+
+service LogStream {
+    rpc Read (ReadRequest) returns (LogLines) {};
+}
+
+// ~/git/protobuf/src/protoc -I logstream/ --go_out=plugins=grpc:logstream logstream/*.proto

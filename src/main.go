@@ -7,6 +7,7 @@ import (
 
 	"github.com/rs/cors"
 
+	"github.com/kafkaesque-io/burnell/src/logclient"
 	"github.com/kafkaesque-io/burnell/src/route"
 	"github.com/kafkaesque-io/burnell/src/util"
 )
@@ -28,6 +29,9 @@ func main() {
 	handler := c.Handler(router)
 	config := util.GetConfig()
 	port := util.AssignString(config.PORT, "8080")
+
+	logclient.FunctionTopicWatchDog()
+	log.Println("start serv")
 	log.Fatal(http.ListenAndServe(":"+port, handler))
 
 }

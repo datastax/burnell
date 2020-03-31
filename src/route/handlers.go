@@ -1,6 +1,7 @@
 package route
 
 import (
+	"encoding/json"
 	"errors"
 	"log"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/kafkaesque-io/burnell/src/logclient"
 	"github.com/kafkaesque-io/burnell/src/util"
 )
 
@@ -82,6 +84,35 @@ func VerifyTenantProxyHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	w.WriteHeader(http.StatusForbidden)
+	return
+}
+
+// FunctionLogsHandler responds with the function logs
+func FunctionLogsHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	tenant, ok := vars["tenant"]
+	namespace, ok2 := vars["namespace"]
+	funcName, ok3 := vars["function"]
+	// fmt.Printf("%s, %s %s\n", tenant, namespace, funcName)
+	if ok && ok2 && ok3 {
+		clientRes, err := logclient.GetFunctionLog(tenant+namespace+funcName, "backward")
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		// fmt.Printf("pos %d, %d\n", clientRes.BackwardPosition, clientRes.ForwardPosition)
+		jsonResponse, err := json.Marshal(clientRes)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write(jsonResponse)
+		return
+	}
+	w.WriteHeader(http.StatusUnprocessableEntity)
 	return
 }
 

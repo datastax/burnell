@@ -31,6 +31,10 @@ type Configuration struct {
 	PulsarPublicKey  string `json:"PulsarPublicKey"`
 	PulsarPrivateKey string `json:"PulsarPrivateKey"`
 	SuperRoles       string `json:"SuperRoles"`
+
+	PulsarToken string `json:"PulsarToken"`
+	PulsarURL   string `json:"PulsarURL"`
+	CertStore   string `json:"CertStore"`
 }
 
 // Config - this server's configuration instance
