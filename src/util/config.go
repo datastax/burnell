@@ -35,6 +35,8 @@ type Configuration struct {
 	PulsarToken string `json:"PulsarToken"`
 	PulsarURL   string `json:"PulsarURL"`
 	CertStore   string `json:"CertStore"`
+
+	LogServerPort string `json:"LogServerPort"`
 }
 
 // Config - this server's configuration instance

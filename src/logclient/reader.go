@@ -182,9 +182,9 @@ func GetFunctionLog(functionName string, rd string) (FunctionLogResponse, error)
 		return FunctionLogResponse{}, fmt.Errorf("not found")
 	}
 	// Set up a connection to the server.
-	address := function.FunctionWorkerID + logstream.LogServerPort
+	address := function.FunctionWorkerID + util.AssignString(util.GetConfig().LogServerPort, logstream.DefaultLogServerPort)
 	// fmt.Printf("found function %s\n", address)
-	address = logstream.LogServerPort
+	// address = logstream.DefaultLogServerPort
 	conn, err := grpc.Dial(address, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		return FunctionLogResponse{}, err

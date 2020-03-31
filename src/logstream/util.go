@@ -2,8 +2,8 @@ package logstream
 
 import "strconv"
 
-// LogServerPort port
-const LogServerPort = ":4040"
+// DefaultLogServerPort port
+const DefaultLogServerPort = ":4040"
 
 // FilePath is the default function log path
 const FilePath = "/pulsar/logs/functions/"
