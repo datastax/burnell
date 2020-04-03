@@ -106,7 +106,11 @@ func FunctionLogsHandler(w http.ResponseWriter, r *http.Request) {
 
 	clientRes, err := logclient.GetFunctionLog(tenant+namespace+funcName, reqObj)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		if err == logclient.NotFoundFunctionError {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	// fmt.Printf("pos %d, %d\n", clientRes.BackwardPosition, clientRes.ForwardPosition)

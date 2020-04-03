@@ -24,6 +24,8 @@ type FunctionLogResponse struct {
 	ForwardPosition  int64
 }
 
+var NotFoundFunctionError = fmt.Errorf("function not found")
+
 // FunctionLogRequest is HTTP resquest object
 type FunctionLogRequest struct {
 	Bytes            int64  `json:"bytes"`
@@ -187,42 +189,55 @@ func GetFunctionLog(functionName string, rd FunctionLogRequest) (FunctionLogResp
 	// var funcWorker string
 	function, ok := ReadFunctionMap(functionName)
 	if !ok {
-		return FunctionLogResponse{}, fmt.Errorf("not found")
+		return FunctionLogResponse{}, NotFoundFunctionError
 	}
 	// Set up a connection to the server.
 	address := function.FunctionWorkerID + util.AssignString(util.GetConfig().LogServerPort, logstream.DefaultLogServerPort)
 	fmt.Printf("found function %s\n", address)
 	// address = logstream.DefaultLogServerPort
-	conn, err := grpc.Dial(address, grpc.WithInsecure(), grpc.WithBlock())
+	conn, err := grpc.Dial(address, grpc.WithInsecure(), grpc.WithBlock(), grpc.WithTimeout(2*time.Second))
 	if err != nil {
+		fmt.Println(err)
 		return FunctionLogResponse{}, err
 	}
 	defer conn.Close()
 	c := logstream.NewLogStreamClient(conn)
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
-	var bytes int64 = 500
+	var bytes int64 = 800
 	if rd.Bytes > 0 {
 		bytes = rd.Bytes
 	}
+	direction := requestDirection(rd.Direction)
 	req := &logstream.ReadRequest{
 		File:          logstream.FunctionLogPath(function.Tenant, function.Namespace, function.FunctionName, 0),
-		Direction:     requestDirection(rd.Direction),
+		Direction:     direction,
 		Bytes:         bytes,
 		ForwardIndex:  rd.ForwardPosition,
 		BackwardIndex: rd.BackwardPosition,
 	}
+	log.Printf("making a remote call")
 	res, err := c.Read(ctx, req)
 	if err != nil {
-		log.Fatalf("could not greet: %v", err)
+		fmt.Printf("failed : %v\n", err)
+		return FunctionLogResponse{}, fmt.Errorf("timed out")
 	}
+	log.Printf("compeletedm a remote call")
+	text, offset := adjustLogs(res.GetLogs())
 	// log.Printf("logs: %s %v %v", res.GetLogs(), res.GetBackwardIndex(), res.GetForwardIndex())
+	backwardPos := res.GetBackwardIndex()
+	forwardPos := res.GetForwardIndex()
+	if direction == logstream.ReadRequest_FORWARD {
+		forwardPos = forwardPos + bytes - int64(offset)
+	} else {
+		backwardPos = backwardPos - bytes + int64(offset)
+	}
 	return FunctionLogResponse{
-		Logs:             res.GetLogs(),
-		BackwardPosition: res.GetBackwardIndex(),
-		ForwardPosition:  res.GetForwardIndex(),
+		Logs:             text,
+		BackwardPosition: backwardPos,
+		ForwardPosition:  forwardPos,
 	}, nil
 }
 
@@ -231,6 +246,13 @@ func requestDirection(r string) logstream.ReadRequest_Direction {
 		return logstream.ReadRequest_FORWARD
 	}
 	return logstream.ReadRequest_BACKWARD
+}
+
+// adjustLogs remove the first line of the logs because it might be incomplete
+func adjustLogs(text string) (string, int) {
+	offset := strings.Index(text, "\n")
+	lines := text[offset+1:]
+	return lines, offset
 }
 
 // /pulsar/logs/functions/ming-luo/namespace2/for-monitor-function

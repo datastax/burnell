@@ -21,7 +21,7 @@ type server struct {
 	pb.UnimplementedLogStreamServer
 }
 
-const readStep int64 = 500
+const readStep int64 = 800
 
 // FileReader is an object to keep track all the reader properties
 type FileReader struct {
@@ -68,9 +68,8 @@ func (f *FileReader) ReadBackward(step int64) (string, int64, error) {
 	if step > 0 {
 		bStep = step
 	}
-	fmt.Printf("steps %d %d\n", bStep, step)
 	buf := make([]byte, bStep)
-	_, err := f.file.ReadAt(buf, f.backwardPos-readStep)
+	_, err := f.file.ReadAt(buf, f.backwardPos-bStep)
 	if err != nil {
 		return "", 0, err
 	}
@@ -112,7 +111,7 @@ func (s *server) Read(ctx context.Context, in *pb.ReadRequest) (*pb.LogLines, er
 		if err != nil {
 			return nil, err
 		}
-		fmt.Printf("backwardPos %d forwardPos %d\n", r.backwardPos, r.forwardPos)
+		// fmt.Printf("backwardPos %d forwardPos %d\ntxt:%s\n", r.backwardPos, r.forwardPos, txt)
 		return &pb.LogLines{Logs: txt, ForwardIndex: r.forwardPos, BackwardIndex: r.backwardPos}, nil
 	}
 	txt, _, err = r.ReadForward(in.GetBytes())
@@ -125,7 +124,9 @@ func (s *server) Read(ctx context.Context, in *pb.ReadRequest) (*pb.LogLines, er
 }
 
 func main() {
-	listener, err := net.Listen("tcp", util.AssignString(util.GetConfig().LogServerPort, pb.DefaultLogServerPort))
+	port := util.AssignString(util.GetConfig().LogServerPort, pb.DefaultLogServerPort)
+	fmt.Printf("starting log server on port %s\n", port)
+	listener, err := net.Listen("tcp", port)
 	if err != nil {
 		log.Fatalln(err)
 	}
