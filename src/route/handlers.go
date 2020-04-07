@@ -11,6 +11,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/kafkaesque-io/burnell/src/logclient"
+	"github.com/kafkaesque-io/burnell/src/metrics"
 	"github.com/kafkaesque-io/burnell/src/util"
 )
 
@@ -106,7 +107,7 @@ func FunctionLogsHandler(w http.ResponseWriter, r *http.Request) {
 
 	clientRes, err := logclient.GetFunctionLog(tenant+namespace+funcName, reqObj)
 	if err != nil {
-		if err == logclient.NotFoundFunctionError {
+		if err == logclient.ErrNotFoundFunction {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -126,13 +127,32 @@ func FunctionLogsHandler(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+// PulsarFederatedPrometheusHandler exposes pulsar federated prometheus metrics
+func PulsarFederatedPrometheusHandler(w http.ResponseWriter, r *http.Request) {
+	subject := r.Header.Get("injectedSubs")
+	if subject == "" {
+		http.Error(w, "missing subject", http.StatusUnauthorized)
+		return
+	}
+	tenant := extractTenant(subject)
+	// fmt.Printf("subject for federated prom %s tenant %s\n", subject, tenant)
+	if util.StrContains(util.SuperRoles, tenant) {
+		w.Write([]byte(metrics.AllNamespaceMetrics()))
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	data := metrics.FilterFederatedMetrics(tenant)
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(data))
+}
+
 // VerifySubject verifies the subject can meet the requirement.
 func VerifySubject(requiredSubject, tokenSubjects string) bool {
 	for _, v := range strings.Split(tokenSubjects, ",") {
 		if util.StrContains(util.SuperRoles, v) {
 			return true
 		}
-		sub := extractSubject(v)
+		sub := extractTenant(v)
 		if sub != "" && requiredSubject == sub {
 			return true
 		}
@@ -140,7 +160,7 @@ func VerifySubject(requiredSubject, tokenSubjects string) bool {
 	return false
 }
 
-func extractSubject(tokenSub string) string {
+func extractTenant(tokenSub string) string {
 	// expect - in subject unless it is superuser
 	parts := strings.Split(tokenSub, subDelimiter)
 	if len(parts) < 2 {

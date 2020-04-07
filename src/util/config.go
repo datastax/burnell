@@ -23,18 +23,21 @@ const DefaultConfigFile = "../config/burnell.yml"
 // Configuration - this server's configuration
 type Configuration struct {
 	PORT        string `json:"PORT"`
-	CLUSTER     string `json:"CLUSTER"`
 	ProxyURL    string `json:"ProxyURL"`
 	ProxyPrefix string `json:"ProxyPrefix"`
 
-	// PbDbType is the database type mongo or pulsar
 	PulsarPublicKey  string `json:"PulsarPublicKey"`
 	PulsarPrivateKey string `json:"PulsarPrivateKey"`
 	SuperRoles       string `json:"SuperRoles"`
 
 	PulsarToken string `json:"PulsarToken"`
 	PulsarURL   string `json:"PulsarURL"`
-	CertStore   string `json:"CertStore"`
+	TrustStore  string `json:"TrustStore"`
+	CertFile    string `json:"CertFile"`
+	KeyFile     string `json:"KeyFile"`
+
+	FederatedPromURL      string `json:"FederatedPromURL"`
+	FederatedPromInterval string `json:"FederatedPromInterval"`
 
 	LogServerPort string `json:"LogServerPort"`
 }
@@ -56,7 +59,7 @@ var SuperRoles []string
 
 // Init initializes configuration
 func Init() {
-	configFile := AssignString(os.Getenv("PULSAR_BEAM_CONFIG"), DefaultConfigFile)
+	configFile := AssignString(os.Getenv("BURNELL_CONFIG"), DefaultConfigFile)
 	log.Printf("Configuration built from file - %s", configFile)
 	ReadConfigFile(configFile)
 
@@ -109,7 +112,7 @@ func ReadConfigFile(configFile string) {
 		}
 	}
 
-	log.Println(Config.PORT, Config.ProxyURL)
+	log.Println(Config)
 }
 
 //GetConfig returns a reference to the Configuration

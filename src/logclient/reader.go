@@ -24,7 +24,8 @@ type FunctionLogResponse struct {
 	ForwardPosition  int64
 }
 
-var NotFoundFunctionError = fmt.Errorf("function not found")
+// ErrNotFoundFunction error for function not found
+var ErrNotFoundFunction = fmt.Errorf("function not found")
 
 // FunctionLogRequest is HTTP resquest object
 type FunctionLogRequest struct {
@@ -91,7 +92,7 @@ func ReaderLoop(sig chan *liveSignal) {
 	tokenStr := util.GetConfig().PulsarToken
 	uri := util.GetConfig().PulsarURL
 	// RHEL CentOS:
-	trustStore := util.AssignString(util.GetConfig().CertStore, "/etc/ssl/certs/ca-bundle.crt")
+	trustStore := util.AssignString(util.GetConfig().TrustStore, "/etc/ssl/certs/ca-bundle.crt")
 	// Debian Ubuntu:
 	// trustStore := '/etc/ssl/certs/ca-certificates.crt'
 	topicName := "persistent://public/functions/metadata"
@@ -189,7 +190,7 @@ func GetFunctionLog(functionName string, rd FunctionLogRequest) (FunctionLogResp
 	// var funcWorker string
 	function, ok := ReadFunctionMap(functionName)
 	if !ok {
-		return FunctionLogResponse{}, NotFoundFunctionError
+		return FunctionLogResponse{}, ErrNotFoundFunction
 	}
 	// Set up a connection to the server.
 	address := function.FunctionWorkerID + util.AssignString(util.GetConfig().LogServerPort, logstream.DefaultLogServerPort)
@@ -224,7 +225,6 @@ func GetFunctionLog(functionName string, rd FunctionLogRequest) (FunctionLogResp
 		fmt.Printf("failed : %v\n", err)
 		return FunctionLogResponse{}, fmt.Errorf("timed out")
 	}
-	log.Printf("compeletedm a remote call")
 	text, offset := adjustLogs(res.GetLogs())
 	// log.Printf("logs: %s %v %v", res.GetLogs(), res.GetBackwardIndex(), res.GetForwardIndex())
 	backwardPos := res.GetBackwardIndex()

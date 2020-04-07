@@ -24,4 +24,4 @@ COPY --from=builder /root/config/burnell.yml /root/config/burnell.yml
 COPY --from=builder /root/src/unit-test/example_p* /root/config/
 
 # Command to run the executable
-CMD ["./burnell"]
+ENTRYPOINT ["./burnell"]
