@@ -21,7 +21,7 @@ func AuthVerifyJWT(next http.Handler) http.Handler {
 		subjects, err := util.JWTAuth.GetTokenSubject(tokenStr)
 
 		if err == nil {
-			log.Println("Authenticated")
+			log.Printf("Authenticated with subjects %s", subjects)
 			r.Header.Set(injectedSubs, subjects)
 			next.ServeHTTP(w, r)
 		} else {
@@ -38,7 +38,7 @@ func SuperRoleRequired(next http.Handler) http.Handler {
 		subject, err := util.JWTAuth.GetTokenSubject(tokenStr)
 
 		if err == nil && util.StrContains(util.SuperRoles, subject) {
-			log.Println("Authenticated")
+			log.Println("superroles Authenticated")
 			next.ServeHTTP(w, r)
 		} else {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)

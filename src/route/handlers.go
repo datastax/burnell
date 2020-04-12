@@ -134,7 +134,7 @@ func PulsarFederatedPrometheusHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "missing subject", http.StatusUnauthorized)
 		return
 	}
-	tenant := extractTenant(subject)
+	_, tenant := ExtractTenant(subject)
 	// fmt.Printf("subject for federated prom %s tenant %s\n", subject, tenant)
 	if util.StrContains(util.SuperRoles, tenant) {
 		w.Write([]byte(metrics.AllNamespaceMetrics()))
@@ -152,21 +152,32 @@ func VerifySubject(requiredSubject, tokenSubjects string) bool {
 		if util.StrContains(util.SuperRoles, v) {
 			return true
 		}
-		sub := extractTenant(v)
-		if sub != "" && requiredSubject == sub {
-			return true
-		}
+		subCase1, subCase2 := ExtractTenant(v)
+		return requiredSubject == subCase1 || requiredSubject == subCase2
 	}
 	return false
 }
 
-func extractTenant(tokenSub string) string {
-	// expect - in subject unless it is superuser
+// ExtractTenant attempts to extract tenant based on delimiter `-` and `-client-`
+// so that it will covercases such as 1. chris-kafkaesque-io-12345qbc
+// 2. chris-kafkaesque-io-client-12345qbc
+// 3. chris-kafkaesque-io
+// 4. chris-kafkaesque-io-client-client-12345qbc
+func ExtractTenant(tokenSub string) (string, string) {
+	var case1 string
+	// expect `-` in subject unless it is superuser, or admin
+	// so return them as is
 	parts := strings.Split(tokenSub, subDelimiter)
 	if len(parts) < 2 {
-		return ""
+		return tokenSub, tokenSub
 	}
 
+	// cases to cover with only `-` as delimiter
 	validLength := len(parts) - 1
-	return strings.Join(parts[:validLength], subDelimiter)
+	case1 = strings.Join(parts[:validLength], subDelimiter)
+
+	if parts[validLength-1] == "client" {
+		return case1, strings.Join(parts[:(validLength-1)], subDelimiter)
+	}
+	return case1, case1
 }
