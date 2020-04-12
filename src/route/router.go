@@ -15,7 +15,7 @@ func NewRouter() *mux.Router {
 	router := mux.NewRouter().StrictSlash(true)
 
 	router.Path("/liveness").Methods(http.MethodGet).Name("liveness").Handler(NoAuth(Logger(http.HandlerFunc(StatusPage), "liveness")))
-	router.Path("/subject").Methods(http.MethodGet).Name("token server").Handler(NoAuth(Logger(http.HandlerFunc(TokenSubjectHandler), "token server")))
+	router.Path("/subject/{sub}").Methods(http.MethodGet).Name("token server").Handler(SuperRoleRequired(Logger(http.HandlerFunc(TokenSubjectHandler), "token server")))
 	router.Path("/metrics").Methods(http.MethodGet).Name("metrics").Handler(NoAuth(promhttp.Handler()))
 	router.Path("/pulsarmetrics").Methods(http.MethodGet).Name("pulsar metrics").
 		Handler(AuthVerifyJWT(http.HandlerFunc(PulsarFederatedPrometheusHandler)))

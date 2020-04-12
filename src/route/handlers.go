@@ -20,6 +20,12 @@ const (
 	injectedSubs = "injectedSubs"
 )
 
+// TokenServerResponse is the json object for token server response
+type TokenServerResponse struct {
+	Subject string `json:"subject"`
+	Token   string `json:"token"`
+}
+
 // AdminProxyHandler is Pulsar admin REST api's proxy handler
 type AdminProxyHandler struct {
 	Destination *url.URL
@@ -39,17 +45,23 @@ func TokenSubjectHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if util.StrContains(util.SuperRoles, util.AssignString(r.Header.Get("injectedSubs"), "BOGUSROLE")) {
-		tokenString, err := util.JWTAuth.GenerateToken(subject)
+	tokenString, err := util.JWTAuth.GenerateToken(subject)
+	if err != nil {
+		util.ResponseErrorJSON(errors.New("failed to generate token"), w, http.StatusInternalServerError)
+	} else {
+		w.WriteHeader(http.StatusOK)
+		respJSON, err := json.Marshal(&TokenServerResponse{
+			Subject: subject,
+			Token:   tokenString,
+		})
 		if err != nil {
-			util.ResponseErrorJSON(errors.New("failed to generate token"), w, http.StatusInternalServerError)
-		} else {
-			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(tokenString))
+			util.ResponseErrorJSON(errors.New("failed to marshal token response json object"), w, http.StatusInternalServerError)
+			return
 		}
+		w.Write(respJSON)
+		w.WriteHeader(http.StatusOK)
 		return
 	}
-	util.ResponseErrorJSON(errors.New("incorrect subject"), w, http.StatusUnauthorized)
 	return
 }
 
