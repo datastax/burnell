@@ -64,10 +64,11 @@ func Init() {
 	ReadConfigFile(configFile)
 
 	JWTAuth = icrypto.NewRSAKeyPair(Config.PulsarPrivateKey, Config.PulsarPublicKey)
-	if uri, err := url.ParseRequestURI(Config.ProxyURL); err != nil {
+	uri, err := url.ParseRequestURI(Config.ProxyURL)
+	if err != nil {
 		log.Fatal(err)
-		ProxyURL = uri
 	}
+	ProxyURL = uri
 	AdminRestPrefix = Config.AdminRestPrefix
 
 	for _, v := range strings.Split(Config.SuperRoles, ",") {

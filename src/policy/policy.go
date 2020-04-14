@@ -1,8 +1,10 @@
 package policy
 
 import (
+	"net/http"
 	"time"
 
+	"github.com/kafkaesque-io/burnell/src/util"
 	"github.com/patrickmn/go-cache"
 )
 
@@ -127,4 +129,14 @@ func getPlanPolicy(plan PlanTier) *PlanPolicy {
 // UpdateCache updates the tenant policy map
 func UpdateCache(tenant string, plan PlanPolicy) {
 	TenantPolicyMap.Add(tenant, plan, cache.DefaultExpiration)
+}
+
+// EvalNamespaceAdminAPI evaluate tenant's namespace administration permission
+func EvalNamespaceAdminAPI(r *http.Request, subject string) bool {
+	return util.StrContains(util.SuperRoles, subject) || r.Method == http.MethodGet
+}
+
+// EvalTopicAdminAPI evaluate tenant's topic administration permission
+func EvalTopicAdminAPI(r *http.Request, subject string) bool {
+	return util.StrContains(util.SuperRoles, subject) || r.Method == http.MethodGet
 }

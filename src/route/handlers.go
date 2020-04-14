@@ -3,6 +3,7 @@ package route
 import (
 	"encoding/json"
 	"errors"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/http/httputil"
@@ -12,6 +13,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/kafkaesque-io/burnell/src/logclient"
 	"github.com/kafkaesque-io/burnell/src/metrics"
+	"github.com/kafkaesque-io/burnell/src/policy"
 	"github.com/kafkaesque-io/burnell/src/util"
 )
 
@@ -34,6 +36,7 @@ type AdminProxyHandler struct {
 
 // Init initializes database
 func Init() {
+	InitCache()
 }
 
 // TokenSubjectHandler issues new token
@@ -71,21 +74,104 @@ func StatusPage(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-// DirectProxyHandler - Pulsar admin REST API reverse proxy
+// DirectProxyHandler - Pulsar admin REST API reverse proxy with caching
 func DirectProxyHandler(w http.ResponseWriter, r *http.Request) {
 
-	log.Printf("%s %v\n", strings.TrimPrefix(r.URL.RequestURI(), "/admin"), util.ProxyURL.Host)
-
 	proxy := httputil.NewSingleHostReverseProxy(util.ProxyURL)
-	// Update the headers to allow for SSL redirection
-	r.URL.Host = util.ProxyURL.Host
-	r.URL.Scheme = util.ProxyURL.Scheme
-	r.Header.Set("X-Forwarded-Host", r.Header.Get("Host"))
-	r.Header.Set("X-Proxy", "burnell")
-	r.Host = util.ProxyURL.Host
+	// Update r *http.Request based on proxy
+	updateProxyRequest(r)
 
 	proxy.ServeHTTP(w, r)
 
+}
+
+// VerifyTenantCachedProxyHandler verifies subject before sending to the proxy URL
+func VerifyTenantCachedProxyHandler(w http.ResponseWriter, r *http.Request) {
+	if _, _, ok := VerifyTenant(r); ok {
+		CachedProxyHandler(w, r)
+	}
+	w.WriteHeader(http.StatusForbidden)
+	return
+}
+
+// VerifyTenantNamespaceCachedProxyHandler verifies subject before sending to the proxy URL
+func VerifyTenantNamespaceCachedProxyHandler(w http.ResponseWriter, r *http.Request) {
+	if _, sub, ok := VerifyTenant(r); ok {
+		if policy.EvalNamespaceAdminAPI(r, sub) {
+			CachedProxyHandler(w, r)
+		}
+	}
+	w.WriteHeader(http.StatusForbidden)
+	return
+}
+
+// VerifyTenantTopicCachedProxyHandler verifies subject before sending to the proxy URL
+func VerifyTenantTopicCachedProxyHandler(w http.ResponseWriter, r *http.Request) {
+	if _, sub, ok := VerifyTenant(r); ok {
+		if policy.EvalNamespaceAdminAPI(r, sub) {
+			CachedProxyHandler(w, r)
+		}
+	}
+	w.WriteHeader(http.StatusForbidden)
+	return
+}
+
+// CachedProxyHandler is
+func CachedProxyHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet {
+		CachedProxyGETHandler(w, r)
+		return
+	}
+	DirectProxyHandler(w, r)
+}
+
+// CachedProxyGETHandler is a http proxy handler with caching capability for GET method only.
+func CachedProxyGETHandler(w http.ResponseWriter, r *http.Request) {
+	key := HashKey(r.URL.Path + r.Header["Authorization"][0])
+	log.Printf("hash key is %s\n", key)
+	if entry, err := HttpCache.Get(key); err == nil {
+		log.Println("found in cache")
+		w.Write(entry)
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	requestRoute := strings.TrimPrefix(r.URL.RequestURI(), util.AssignString(util.Config.AdminRestPrefix, "/admin/"))
+	log.Printf(" proxy %s %v request route is %s\n", r.URL.RequestURI(), util.ProxyURL, requestRoute)
+
+	// Update the headers to allow for SSL redirection
+	newRequest, err := http.NewRequest(http.MethodGet, util.Config.ProxyURL+requestRoute, nil)
+	if err != nil {
+		util.ResponseErrorJSON(errors.New("failed to set proxy request"), w, http.StatusInternalServerError)
+		return
+	}
+	newRequest.Header.Add("X-Forwarded-Host", r.Header.Get("Host"))
+	newRequest.Header.Add("X-Proxy", "burnell")
+	//r.Host = util.ProxyURL.Host
+	//r.RequestURI = util.ProxyURL.RequestURI() + requestRoute
+	newRequest.Header.Add("Authorization", "Bearer "+util.Config.PulsarToken)
+	client := &http.Client{}
+	log.Printf("r requestURI %s\nproxy r:: %v\n", newRequest.RequestURI, newRequest)
+	response, err := client.Do(newRequest)
+	if err != nil {
+		log.Println(err)
+		util.ResponseErrorJSON(errors.New("proxy failure"), w, http.StatusInternalServerError)
+		return
+	}
+
+	body, err := ioutil.ReadAll(response.Body)
+	response.Body.Close()
+	if err != nil {
+		util.ResponseErrorJSON(errors.New("failed to read proxy response body"), w, http.StatusInternalServerError)
+		return
+	}
+
+	err = HttpCache.Set(key, body)
+	if err != nil {
+		log.Printf("Could not write into cache: %s", err)
+	}
+	log.Printf("set in cache key is %s\n", key)
+
+	w.Write(body)
 }
 
 // VerifyTenantProxyHandler verifies subject before sending to the proxy URL
@@ -158,6 +244,18 @@ func PulsarFederatedPrometheusHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(data))
 }
 
+// VerifyTenant verifies tenant and returns tenant name and weather verification has passed
+func VerifyTenant(r *http.Request) (string, string, bool) {
+	vars := mux.Vars(r)
+	sub := r.Header.Get(injectedSubs)
+	if tenantName, ok := vars["tenant"]; ok {
+		if VerifySubject(tenantName, sub) {
+			return tenantName, sub, true
+		}
+	}
+	return "", sub, false
+}
+
 // VerifySubject verifies the subject can meet the requirement.
 func VerifySubject(requiredSubject, tokenSubjects string) bool {
 	for _, v := range strings.Split(tokenSubjects, ",") {
@@ -192,4 +290,20 @@ func ExtractTenant(tokenSub string) (string, string) {
 		return case1, strings.Join(parts[:(validLength-1)], subDelimiter)
 	}
 	return case1, case1
+}
+
+func updateProxyRequest(r *http.Request) {
+	requestRoute := strings.TrimPrefix(r.URL.RequestURI(), util.AssignString(util.Config.AdminRestPrefix, "/admin/"))
+	log.Printf("direct proxy %s %v request route is %s\n", r.URL.RequestURI(), util.ProxyURL, requestRoute)
+
+	// Update the headers to allow for SSL redirection
+	r.URL.Host = util.ProxyURL.Host
+	r.URL.Scheme = util.ProxyURL.Scheme
+	r.URL.Path = requestRoute
+	r.Header.Set("X-Forwarded-Host", r.Header.Get("Host"))
+	r.Header.Set("X-Proxy", "burnell")
+	r.Host = util.ProxyURL.Host
+	r.RequestURI = util.ProxyURL.RequestURI() + requestRoute
+	r.Header["Authorization"] = []string{"Bearer " + util.Config.PulsarToken}
+	//log.Printf("r requestURI %s\nproxy r:: %v\n", r.RequestURI, r)
 }
