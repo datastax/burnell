@@ -25,26 +25,24 @@ func NewRouter() *mux.Router {
 		Handler(NoAuth(http.HandlerFunc(FunctionLogsHandler)))
 		// Handler(AuthVerifyJWT(http.HandlerFunc(FunctionLogsHandler)))
 
-		/*
-			router.PathPrefix("/admin/bookies/racks-info").Methods(http.MethodGet, http.MethodPost, http.MethodDelete).
-				Handler(SuperRoleRequired(http.HandlerFunc(DirectProxyHandler)))
+	router.PathPrefix("/admin/bookies/racks-info").Methods(http.MethodGet, http.MethodPost, http.MethodDelete).
+		Handler(SuperRoleRequired(http.HandlerFunc(DirectProxyHandler)))
 
-			router.PathPrefix("/admin/broker-stats").Methods(http.MethodGet).
-				Handler(SuperRoleRequired(http.HandlerFunc(DirectProxyHandler)))
-			// Exception is broker-resource-availability/{tenant}/{namespace}
-			// since "org.apache.pulsar.broker.loadbalance.impl.ModularLoadManagerWrapper does not support this operation"
-			// we would not support this for now
+	router.PathPrefix("/admin/broker-stats").Methods(http.MethodGet).
+		Handler(SuperRoleRequired(http.HandlerFunc(DirectProxyHandler)))
+	// Exception is broker-resource-availability/{tenant}/{namespace}
+	// since "org.apache.pulsar.broker.loadbalance.impl.ModularLoadManagerWrapper does not support this operation"
+	// we would not support this for now
 
-			router.PathPrefix("/admin/brokers/").Methods(http.MethodGet, http.MethodPost, http.MethodDelete).
-				Handler(SuperRoleRequired(http.HandlerFunc(DirectProxyHandler)))
+	router.PathPrefix("/admin/brokers/").Methods(http.MethodGet, http.MethodPost, http.MethodDelete).
+		Handler(SuperRoleRequired(http.HandlerFunc(DirectProxyHandler)))
 
-			router.PathPrefix("/admin/clusters/").Methods(http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete).
-				Handler(SuperRoleRequired(http.HandlerFunc(DirectProxyHandler)))
+	router.PathPrefix("/admin/clusters/").Methods(http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete).
+		Handler(SuperRoleRequired(http.HandlerFunc(DirectProxyHandler)))
 
-			// persistent topic
-			router.PathPrefix("/admin/persistent/{tenant}/{namespace}").Methods(http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete).
-				Handler(AuthVerifyJWT(http.HandlerFunc(VerifyTenantProxyHandler)))
-		*/
+	// persistent topic
+	router.PathPrefix("/admin/persistent/{tenant}/{namespace}").Methods(http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete).
+		Handler(AuthVerifyJWT(http.HandlerFunc(VerifyTenantProxyHandler)))
 
 	// TODO rate limit can be added per route basis
 	router.Use(LimitRate)

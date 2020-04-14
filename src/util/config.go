@@ -22,9 +22,9 @@ const DefaultConfigFile = "../config/burnell.yml"
 
 // Configuration - this server's configuration
 type Configuration struct {
-	PORT        string `json:"PORT"`
-	ProxyURL    string `json:"ProxyURL"`
-	ProxyPrefix string `json:"ProxyPrefix"`
+	PORT            string `json:"PORT"`
+	ProxyURL        string `json:"ProxyURL"`
+	AdminRestPrefix string `json:"AdminRestPrefix"`
 
 	PulsarPublicKey  string `json:"PulsarPublicKey"`
 	PulsarPrivateKey string `json:"PulsarPrivateKey"`
@@ -51,8 +51,8 @@ var JWTAuth *icrypto.RSAKeyPair
 // ProxyURL is the destination URL for the proxy
 var ProxyURL *url.URL
 
-// ProxyPrefix is the route prefix for proxy routing
-var ProxyPrefix string
+// AdminRestPrefix is the route prefix for proxy routing
+var AdminRestPrefix string
 
 // SuperRoles is super and admin roles for Pulsar
 var SuperRoles []string
@@ -68,7 +68,7 @@ func Init() {
 		log.Fatal(err)
 		ProxyURL = uri
 	}
-	ProxyPrefix = Config.ProxyPrefix
+	AdminRestPrefix = Config.AdminRestPrefix
 
 	for _, v := range strings.Split(Config.SuperRoles, ",") {
 		SuperRoles = append(SuperRoles, strings.TrimSpace(v))
