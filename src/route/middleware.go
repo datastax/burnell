@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/gorilla/mux"
 	"github.com/kafkaesque-io/burnell/src/util"
 )
 
@@ -27,6 +28,32 @@ func AuthVerifyJWT(next http.Handler) http.Handler {
 		} else {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		}
+
+	})
+}
+
+// AuthVerifyTenantJWT Authenticate middleware function that extracts the subject in JWT
+func AuthVerifyTenantJWT(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		tokenStr := strings.TrimSpace(strings.Replace(r.Header.Get("Authorization"), "Bearer", "", 1))
+		subjects, err := util.JWTAuth.GetTokenSubject(tokenStr)
+
+		if err != nil {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		log.Printf("Authenticated with subjects %s", subjects)
+		r.Header.Set(injectedSubs, subjects)
+		vars := mux.Vars(r)
+		if tenantName, ok := vars["tenant"]; ok {
+			if VerifySubject(tenantName, subjects) {
+				next.ServeHTTP(w, r)
+				return
+			}
+		}
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
 
 	})
 }

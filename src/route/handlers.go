@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/gorilla/mux"
@@ -28,6 +29,15 @@ type TokenServerResponse struct {
 	Token   string `json:"token"`
 }
 
+// TopicStatsResponse struct
+type TopicStatsResponse struct {
+	Tenant    string                 `json:"tenant"`
+	SessionID string                 `json:"sessionId"`
+	Offset    int                    `json:"offset"`
+	Total     int                    `json:"total"`
+	Data      map[string]interface{} `json:"data"`
+}
+
 // AdminProxyHandler is Pulsar admin REST api's proxy handler
 type AdminProxyHandler struct {
 	Destination *url.URL
@@ -37,6 +47,8 @@ type AdminProxyHandler struct {
 // Init initializes database
 func Init() {
 	InitCache()
+	CacheTopicStatsWorker()
+	topicStats = make(map[string]map[string]interface{})
 }
 
 // TokenSubjectHandler issues new token
@@ -85,15 +97,6 @@ func DirectProxyHandler(w http.ResponseWriter, r *http.Request) {
 
 }
 
-// VerifyTenantCachedProxyHandler verifies subject before sending to the proxy URL
-func VerifyTenantCachedProxyHandler(w http.ResponseWriter, r *http.Request) {
-	if _, _, ok := VerifyTenant(r); ok {
-		CachedProxyHandler(w, r)
-	}
-	w.WriteHeader(http.StatusForbidden)
-	return
-}
-
 // VerifyTenantNamespaceCachedProxyHandler verifies subject before sending to the proxy URL
 func VerifyTenantNamespaceCachedProxyHandler(w http.ResponseWriter, r *http.Request) {
 	if _, sub, ok := VerifyTenant(r); ok {
@@ -129,13 +132,12 @@ func CachedProxyHandler(w http.ResponseWriter, r *http.Request) {
 func CachedProxyGETHandler(w http.ResponseWriter, r *http.Request) {
 	key := HashKey(r.URL.Path + r.Header["Authorization"][0])
 	log.Printf("hash key is %s\n", key)
-	if entry, err := HttpCache.Get(key); err == nil {
-		log.Println("found in cache")
+	if entry, err := HTTPCache.Get(key); err == nil {
 		w.Write(entry)
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	requestRoute := strings.TrimPrefix(r.URL.RequestURI(), util.AssignString(util.Config.AdminRestPrefix, "/admin/"))
+	requestRoute := strings.TrimPrefix(r.URL.RequestURI(), util.AssignString(util.Config.AdminRestPrefix, "/admin/v2"))
 	log.Printf(" proxy %s %v request route is %s\n", r.URL.RequestURI(), util.ProxyURL, requestRoute)
 
 	// Update the headers to allow for SSL redirection
@@ -150,7 +152,7 @@ func CachedProxyGETHandler(w http.ResponseWriter, r *http.Request) {
 	//r.RequestURI = util.ProxyURL.RequestURI() + requestRoute
 	newRequest.Header.Add("Authorization", "Bearer "+util.Config.PulsarToken)
 	client := &http.Client{}
-	log.Printf("r requestURI %s\nproxy r:: %v\n", newRequest.RequestURI, newRequest)
+	// log.Printf("r requestURI %s\nproxy r:: %v\n", newRequest.RequestURI, newRequest)
 	response, err := client.Do(newRequest)
 	if err != nil {
 		log.Println(err)
@@ -165,7 +167,7 @@ func CachedProxyGETHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = HttpCache.Set(key, body)
+	err = HTTPCache.Set(key, body)
 	if err != nil {
 		log.Printf("Could not write into cache: %s", err)
 	}
@@ -244,6 +246,55 @@ func PulsarFederatedPrometheusHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(data))
 }
 
+// TenantTopicStatsHandler returns tenant topic statistics
+func TenantTopicStatsHandler(w http.ResponseWriter, r *http.Request) {
+	subject := r.Header.Get("injectedSubs")
+	if subject == "" {
+		http.Error(w, "missing subject", http.StatusUnauthorized)
+		return
+	}
+	vars := mux.Vars(r)
+	tenant, ok := vars["tenant"]
+	if !ok {
+		http.Error(w, "missing tenant name", http.StatusUnprocessableEntity)
+		return
+	}
+	u, _ := url.Parse(r.URL.String())
+	params := u.Query()
+	offset := queryParamInt(params, "offset", 0)
+	pageSize := queryParamInt(params, "limit", 50)
+	log.Printf("offset %d limit %d", offset, pageSize)
+
+	totalSize, newOffset, topics := paginateTopicStats(tenant, offset, pageSize)
+	if totalSize > 0 {
+		data, err := json.Marshal(TopicStatsResponse{
+			Tenant:    tenant,
+			SessionID: "reserverd for snapshot iteration",
+			Offset:    newOffset,
+			Total:     totalSize,
+			Data:      topics,
+		})
+		if err != nil {
+			http.Error(w, "failed to marshal cached data", http.StatusInternalServerError)
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write(data)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+	return
+}
+
+func queryParamInt(params url.Values, name string, defaultV int) int {
+	if str, ok := params[name]; ok {
+		if n, err := strconv.Atoi(str[0]); err == nil {
+			return n
+		}
+	}
+	return defaultV
+}
+
 // VerifyTenant verifies tenant and returns tenant name and weather verification has passed
 func VerifyTenant(r *http.Request) (string, string, bool) {
 	vars := mux.Vars(r)
@@ -293,7 +344,7 @@ func ExtractTenant(tokenSub string) (string, string) {
 }
 
 func updateProxyRequest(r *http.Request) {
-	requestRoute := strings.TrimPrefix(r.URL.RequestURI(), util.AssignString(util.Config.AdminRestPrefix, "/admin/"))
+	requestRoute := strings.TrimPrefix(r.URL.RequestURI(), util.AssignString(util.Config.AdminRestPrefix, "/admin/v2"))
 	log.Printf("direct proxy %s %v request route is %s\n", r.URL.RequestURI(), util.ProxyURL, requestRoute)
 
 	// Update the headers to allow for SSL redirection
@@ -305,5 +356,4 @@ func updateProxyRequest(r *http.Request) {
 	r.Host = util.ProxyURL.Host
 	r.RequestURI = util.ProxyURL.RequestURI() + requestRoute
 	r.Header["Authorization"] = []string{"Bearer " + util.Config.PulsarToken}
-	//log.Printf("r requestURI %s\nproxy r:: %v\n", r.RequestURI, r)
 }

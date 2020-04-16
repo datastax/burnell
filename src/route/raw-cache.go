@@ -10,11 +10,13 @@ import (
 	"github.com/allegro/bigcache"
 )
 
-var HttpCache *bigcache.BigCache
+// HTTPCache is the cache for http handlers
+var HTTPCache *bigcache.BigCache
 
+// InitCache initializes cache
 func InitCache() {
 	var err error
-	HttpCache, err = bigcache.NewBigCache(bigcache.Config{
+	HTTPCache, err = bigcache.NewBigCache(bigcache.Config{
 		// number of shards (must be a power of 2)
 		Shards: 128,
 
@@ -56,6 +58,7 @@ func InitCache() {
 	}
 }
 
+// HashKey generates a hash based on a string
 func HashKey(data string) string {
 	sha := sha256.Sum256([]byte(data))
 	return hex.EncodeToString(sha[:])

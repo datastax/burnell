@@ -25,6 +25,7 @@ type Configuration struct {
 	PORT            string `json:"PORT"`
 	ProxyURL        string `json:"ProxyURL"`
 	AdminRestPrefix string `json:"AdminRestPrefix"`
+	ClusterName     string `json:"ClusterName"`
 
 	PulsarPublicKey  string `json:"PulsarPublicKey"`
 	PulsarPrivateKey string `json:"PulsarPrivateKey"`

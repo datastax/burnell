@@ -22,6 +22,9 @@ func NewRouter() *mux.Router {
 	router.Path("/pulsarmetrics").Methods(http.MethodGet).Name("pulsar metrics").
 		Handler(AuthVerifyJWT(http.HandlerFunc(PulsarFederatedPrometheusHandler)))
 
+	router.Path("/stats/topics/{tenant}").Methods(http.MethodGet).Name("tenant topic stats").
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(TenantTopicStatsHandler)))
+
 	// TODO: add two cases without tenant/namesapce and without tenant
 	router.Path("/function-logs/{tenant}/{namespace}/{function}").Methods(http.MethodGet).Name("function-logs").
 		Handler(NoAuth(http.HandlerFunc(FunctionLogsHandler)))
@@ -30,11 +33,11 @@ func NewRouter() *mux.Router {
 	// Pulsar Admin REST API proxy
 	//
 	// /bookies/
-	router.PathPrefix("/admin/bookies").Methods(http.MethodGet, http.MethodPost, http.MethodDelete).
+	router.PathPrefix("/admin/v2/bookies").Methods(http.MethodGet, http.MethodPost, http.MethodDelete).
 		Handler(SuperRoleRequired(http.HandlerFunc(DirectProxyHandler)))
 
 		// /broker-stats
-	router.PathPrefix("/admin/broker-stats").Methods(http.MethodGet).
+	router.PathPrefix("/admin/v2/broker-stats").Methods(http.MethodGet).
 		Handler(SuperRoleRequired(http.HandlerFunc(DirectProxyHandler)))
 	// Exception is broker-resource-availability/{tenant}/{namespace}
 	// since "org.apache.pulsar.broker.loadbalance.impl.ModularLoadManagerWrapper does not support this operation"
@@ -43,73 +46,73 @@ func NewRouter() *mux.Router {
 	//
 	// /brokers
 	//
-	router.PathPrefix("/admin/brokers").Methods(http.MethodGet, http.MethodPost, http.MethodDelete).
+	router.PathPrefix("/admin/v2/brokers").Methods(http.MethodGet, http.MethodPost, http.MethodDelete).
 		Handler(SuperRoleRequired(http.HandlerFunc(DirectProxyHandler)))
 
-		//
+	//
 	// /clusters
 	//
-	router.PathPrefix("/admin/clusters").Methods(http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete).
+	router.PathPrefix("/admin/v2/clusters").Methods(http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete).
 		Handler(SuperRoleRequired(http.HandlerFunc(CachedProxyHandler)))
 
-		//
+	//
 	// /namespaces
 	// 1. list of routes that superroles are required under tenant
-	router.PathPrefix("/admin/namespaces/{tenant}/{namespace}").Methods(http.MethodGet, http.MethodPut, http.MethodDelete, http.MethodPost).
-		Handler(AuthVerifyJWT(http.HandlerFunc(VerifyTenantCachedProxyHandler)))
+	router.PathPrefix("/admin/v2/namespaces/{tenant}/{namespace}").Methods(http.MethodGet, http.MethodPut, http.MethodDelete, http.MethodPost).
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(CachedProxyHandler)))
 
-	router.PathPrefix("/admin/namespaces/{tenant}/{namespace}/autoSubscriptionCreation").Methods(http.MethodGet, http.MethodPut, http.MethodDelete, http.MethodPost).
-		Handler(AuthVerifyJWT(http.HandlerFunc(VerifyTenantNamespaceCachedProxyHandler)))
-	router.PathPrefix("/admin/namespaces/{tenant}/{namespace}/autoTopicCreation").Methods(http.MethodGet, http.MethodPut, http.MethodDelete, http.MethodPost).
-		Handler(AuthVerifyJWT(http.HandlerFunc(VerifyTenantNamespaceCachedProxyHandler)))
-	router.PathPrefix("/admin/namespaces/{tenant}/{namespace}/backlogQuota").Methods(http.MethodGet, http.MethodGet, http.MethodPut, http.MethodDelete, http.MethodPost).
-		Handler(AuthVerifyJWT(http.HandlerFunc(VerifyTenantNamespaceCachedProxyHandler)))
-	router.PathPrefix("/admin/namespaces/{tenant}/{namespace}/bundles").Methods(http.MethodGet, http.MethodPut, http.MethodDelete, http.MethodPost).
-		Handler(AuthVerifyJWT(http.HandlerFunc(VerifyTenantNamespaceCachedProxyHandler)))
+	router.PathPrefix("/admin/v2/namespaces/{tenant}/{namespace}/autoSubscriptionCreation").Methods(http.MethodGet, http.MethodPut, http.MethodDelete, http.MethodPost).
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(CachedProxyHandler)))
+	router.PathPrefix("/admin/v2/namespaces/{tenant}/{namespace}/autoTopicCreation").Methods(http.MethodGet, http.MethodPut, http.MethodDelete, http.MethodPost).
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(CachedProxyHandler)))
+	router.PathPrefix("/admin/v2/namespaces/{tenant}/{namespace}/backlogQuota").Methods(http.MethodGet, http.MethodGet, http.MethodPut, http.MethodDelete, http.MethodPost).
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(CachedProxyHandler)))
+	router.PathPrefix("/admin/v2/namespaces/{tenant}/{namespace}/bundles").Methods(http.MethodGet, http.MethodPut, http.MethodDelete, http.MethodPost).
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(CachedProxyHandler)))
 
-	router.PathPrefix("/admin/namespaces/{tenant}/{namespace}/clearBacklog").Methods(http.MethodPost).
-		Handler(AuthVerifyJWT(http.HandlerFunc(VerifyTenantCachedProxyHandler)))
+	router.PathPrefix("/admin/v2/namespaces/{tenant}/{namespace}/clearBacklog").Methods(http.MethodPost).
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(CachedProxyHandler)))
 
-	// /admin/namespaces/{tenant}/{namespace}/antiAffinity is also included for tenant access
-	router.PathPrefix("/admin/namespaces/{tenant}/{namespace}").Methods(http.MethodGet, http.MethodPut, http.MethodDelete, http.MethodPost).
-		Handler(AuthVerifyJWT(http.HandlerFunc(VerifyTenantCachedProxyHandler)))
+	// /admin/v2/namespaces/{tenant}/{namespace}/antiAffinity is also included for tenant access
+	router.PathPrefix("/admin/v2/namespaces/{tenant}/{namespace}").Methods(http.MethodGet, http.MethodPut, http.MethodDelete, http.MethodPost).
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(CachedProxyHandler)))
 
-	router.PathPrefix("/admin/namespaces/{tenant}").Methods(http.MethodGet).
-		Handler(AuthVerifyJWT(http.HandlerFunc(VerifyTenantCachedProxyHandler)))
+	router.PathPrefix("/admin/v2/namespaces/{tenant}").Methods(http.MethodGet).
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(CachedProxyHandler)))
 
 	// 2. routes require superroles access
 	// TODO to be confirmed
-	router.PathPrefix("/admin/namespaces").Methods(http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete).
+	router.PathPrefix("/admin/v2/namespaces").Methods(http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete).
 		Handler(SuperRoleRequired(http.HandlerFunc(CachedProxyHandler)))
 
 	//
 	// persistent topic
 	//
-	router.PathPrefix("/admin/persistent/{tenant}/{namespace}").Methods(http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete).
-		Handler(AuthVerifyJWT(http.HandlerFunc(VerifyTenantCachedProxyHandler)))
-	// /admin/persistent/{tenant}/{namespace}/partitioned
+	router.PathPrefix("/admin/v2/persistent/{tenant}/{namespace}").Methods(http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete).
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(CachedProxyHandler)))
+	// /admin/v2/persistent/{tenant}/{namespace}/partitioned
 
 	// non-persistent topic
-	router.PathPrefix("/admin/non-persistent/{tenant}/{namespace}").Methods(http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete).
-		Handler(AuthVerifyJWT(http.HandlerFunc(VerifyTenantCachedProxyHandler)))
+	router.PathPrefix("/admin/v2/non-persistent/{tenant}/{namespace}").Methods(http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete).
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(CachedProxyHandler)))
 
 	//
 	// /resource-quotas
 	//
-	router.PathPrefix("/admin/schemas").Methods(http.MethodGet, http.MethodPost, http.MethodDelete).
-		Handler(AuthVerifyJWT(http.HandlerFunc(VerifyTenantCachedProxyHandler)))
+	router.PathPrefix("/admin/v2/resource-quotas").Methods(http.MethodGet, http.MethodPost, http.MethodDelete).
+		Handler(SuperRoleRequired(http.HandlerFunc(CachedProxyHandler)))
 
 	//
 	// /schemas
 	//
-	router.PathPrefix("/admin/schemas").Methods(http.MethodGet, http.MethodPost, http.MethodDelete).
-		Handler(AuthVerifyJWT(http.HandlerFunc(VerifyTenantCachedProxyHandler)))
+	router.PathPrefix("/admin/v2/schemas").Methods(http.MethodGet, http.MethodPost, http.MethodDelete).
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(CachedProxyHandler)))
 
 	//
 	// /tenants
 	//
-	router.PathPrefix("/admin/tenants").Methods(http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete).
-		Handler(SuperRoleRequired(http.HandlerFunc(VerifyTenantCachedProxyHandler)))
+	router.PathPrefix("/admin/v2/tenants").Methods(http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete).
+		Handler(SuperRoleRequired(http.HandlerFunc(CachedProxyHandler)))
 
 	// TODO rate limit can be added per route basis
 	router.Use(LimitRate)

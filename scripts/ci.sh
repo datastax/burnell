@@ -23,3 +23,6 @@ echo run go build
 mkdir -p ${DIR}/../bin
 rm -f ${DIR}/../bin/burnell
 go build -o ${DIR}/../bin/burnell .
+
+cd $DIR/../src/logserver
+go build -o ${DIR}/../bin/logcollector
