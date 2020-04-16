@@ -91,20 +91,24 @@ func ReaderLoop(sig chan *liveSignal) {
 	// Configuration variables pertaining to this reader
 	tokenStr := util.GetConfig().PulsarToken
 	uri := util.GetConfig().PulsarURL
-	// RHEL CentOS:
-	trustStore := util.AssignString(util.GetConfig().TrustStore, "/etc/ssl/certs/ca-bundle.crt")
-	// Debian Ubuntu:
-	// trustStore := '/etc/ssl/certs/ca-certificates.crt'
 	topicName := "persistent://public/functions/metadata"
-	token := pulsar.NewAuthenticationToken(tokenStr)
 
+	clientOpt := pulsar.ClientOptions{
+		URL:               uri,
+		OperationTimeout:  30 * time.Second,
+		ConnectionTimeout: 30 * time.Second,
+	}
+
+	if tokenStr != "" {
+		clientOpt.Authentication = pulsar.NewAuthenticationToken(tokenStr)
+	}
+
+	if strings.HasPrefix(uri, "pulsar+ssl://") {
+		trustStore := util.AssignString(util.GetConfig().TrustStore, "/etc/ssl/certs/ca-bundle.crt")
+		clientOpt.TLSTrustCertsFilePath = trustStore
+	}
 	// Pulsar client
-	client, err := pulsar.NewClient(pulsar.ClientOptions{
-		URL:                   uri,
-		Authentication:        token,
-		TLSTrustCertsFilePath: trustStore,
-	})
-
+	client, err := pulsar.NewClient(clientOpt)
 	if err != nil {
 		log.Println(err)
 		return

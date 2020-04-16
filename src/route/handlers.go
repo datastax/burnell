@@ -354,6 +354,6 @@ func updateProxyRequest(r *http.Request) {
 	r.Header.Set("X-Forwarded-Host", r.Header.Get("Host"))
 	r.Header.Set("X-Proxy", "burnell")
 	r.Host = util.ProxyURL.Host
-	r.RequestURI = util.ProxyURL.RequestURI() + requestRoute
+	r.RequestURI = util.SingleJoiningSlash(util.ProxyURL.RequestURI(), requestRoute)
 	r.Header["Authorization"] = []string{"Bearer " + util.Config.PulsarToken}
 }
