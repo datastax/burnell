@@ -136,11 +136,12 @@ func brokerStatsQuery(urlString string) map[string]map[string]interface{} {
 
 // CacheTopicStatsWorker is a thread to collect topic stats
 func CacheTopicStatsWorker() {
+	interval := time.Duration(util.GetEnvInt("StatsPullIntervalSecond", 5)) * time.Second
 	go func() {
 		brokersStatsQuery()
 		for {
 			select {
-			case <-time.Tick(10 * time.Second):
+			case <-time.Tick(interval):
 				brokersStatsQuery()
 			}
 		}

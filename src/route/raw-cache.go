@@ -21,12 +21,12 @@ func InitCache() {
 		Shards: 128,
 
 		// time after which entry can be evicted
-		LifeWindow: 20 * time.Second,
+		LifeWindow: 10 * time.Second,
 
 		// Interval between removing expired entries (clean up).
 		// If set to <= 0 then no action is performed.
 		// Setting to < 1 second is counterproductive — bigcache has a one second resolution.
-		CleanWindow: 5 * time.Minute,
+		CleanWindow: 59 * time.Second,
 
 		// rps * lifeWindow, used only in initial memory allocation
 		MaxEntriesInWindow: 1000 * 10 * 60,
