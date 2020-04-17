@@ -40,6 +40,8 @@ type Configuration struct {
 	FederatedPromURL      string `json:"FederatedPromURL"`
 	FederatedPromInterval string `json:"FederatedPromInterval"`
 
+	TenantManagmentTopic string `json:"TenantManagmentTopic"`
+
 	LogServerPort string `json:"LogServerPort"`
 }
 

@@ -22,13 +22,16 @@ func NewRouter() *mux.Router {
 	router.Path("/pulsarmetrics").Methods(http.MethodGet).Name("pulsar metrics").
 		Handler(AuthVerifyJWT(http.HandlerFunc(PulsarFederatedPrometheusHandler)))
 
+	// Tenant policy management URL
+	router.Path("/k/tenant/{tenant}").Methods(http.MethodGet, http.MethodDelete, http.MethodPost).Name("kafkaesque tenant management").
+		Handler(SuperRoleRequired(http.HandlerFunc(TenantManagementHandler)))
+
 	router.Path("/stats/topics/{tenant}").Methods(http.MethodGet).Name("tenant topic stats").
 		Handler(AuthVerifyTenantJWT(http.HandlerFunc(TenantTopicStatsHandler)))
 
 	// TODO: add two cases without tenant/namesapce and without tenant
 	router.Path("/function-logs/{tenant}/{namespace}/{function}").Methods(http.MethodGet).Name("function-logs").
-		Handler(NoAuth(http.HandlerFunc(FunctionLogsHandler)))
-		// Handler(AuthVerifyJWT(http.HandlerFunc(FunctionLogsHandler)))
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(FunctionLogsHandler)))
 
 	// Pulsar Admin REST API proxy
 	//
@@ -36,7 +39,7 @@ func NewRouter() *mux.Router {
 	router.PathPrefix("/admin/v2/bookies").Methods(http.MethodGet, http.MethodPost, http.MethodDelete).
 		Handler(SuperRoleRequired(http.HandlerFunc(DirectProxyHandler)))
 
-		// /broker-stats
+	// /broker-stats
 	router.PathPrefix("/admin/v2/broker-stats").Methods(http.MethodGet).
 		Handler(SuperRoleRequired(http.HandlerFunc(DirectProxyHandler)))
 	// Exception is broker-resource-availability/{tenant}/{namespace}

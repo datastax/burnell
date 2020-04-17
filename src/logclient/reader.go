@@ -86,7 +86,6 @@ func DeleteFunctionMap(key string) bool {
 func ReaderLoop(sig chan *liveSignal) {
 	defer func(s chan *liveSignal) { s <- &liveSignal{} }(sig)
 	functionMap = make(map[string]FunctionType)
-	fmt.Println("Pulsar Reader")
 
 	// Configuration variables pertaining to this reader
 	tokenStr := util.GetConfig().PulsarToken
@@ -178,11 +177,11 @@ func FunctionTopicWatchDog() {
 
 	go func() {
 		s := make(chan *liveSignal)
-		ReaderLoop(s)
+		go ReaderLoop(s)
 		for {
 			select {
 			case <-s:
-				ReaderLoop(s)
+				go ReaderLoop(s)
 			}
 		}
 	}()

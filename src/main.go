@@ -8,6 +8,7 @@ import (
 
 	"github.com/kafkaesque-io/burnell/src/logclient"
 	"github.com/kafkaesque-io/burnell/src/metrics"
+	"github.com/kafkaesque-io/burnell/src/policy"
 	"github.com/kafkaesque-io/burnell/src/route"
 	"github.com/kafkaesque-io/burnell/src/util"
 )
@@ -29,6 +30,7 @@ func main() {
 	config := util.GetConfig()
 
 	logclient.FunctionTopicWatchDog()
+	policy.Initialize()
 	certFile := util.GetConfig().CertFile
 	keyFile := util.GetConfig().KeyFile
 	port := util.AssignString(config.PORT, "8080")

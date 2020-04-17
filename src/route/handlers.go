@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -16,6 +15,8 @@ import (
 	"github.com/kafkaesque-io/burnell/src/metrics"
 	"github.com/kafkaesque-io/burnell/src/policy"
 	"github.com/kafkaesque-io/burnell/src/util"
+
+	"github.com/apex/log"
 )
 
 const (
@@ -97,17 +98,6 @@ func DirectProxyHandler(w http.ResponseWriter, r *http.Request) {
 
 }
 
-// VerifyTenantNamespaceCachedProxyHandler verifies subject before sending to the proxy URL
-func VerifyTenantNamespaceCachedProxyHandler(w http.ResponseWriter, r *http.Request) {
-	if _, sub, ok := VerifyTenant(r); ok {
-		if policy.EvalNamespaceAdminAPI(r, sub) {
-			CachedProxyHandler(w, r)
-		}
-	}
-	w.WriteHeader(http.StatusForbidden)
-	return
-}
-
 // VerifyTenantTopicCachedProxyHandler verifies subject before sending to the proxy URL
 func VerifyTenantTopicCachedProxyHandler(w http.ResponseWriter, r *http.Request) {
 	if _, sub, ok := VerifyTenant(r); ok {
@@ -131,14 +121,14 @@ func CachedProxyHandler(w http.ResponseWriter, r *http.Request) {
 // CachedProxyGETHandler is a http proxy handler with caching capability for GET method only.
 func CachedProxyGETHandler(w http.ResponseWriter, r *http.Request) {
 	key := HashKey(r.URL.Path + r.Header["Authorization"][0])
-	log.Printf("hash key is %s\n", key)
+	log.Infof("hash key is %s\n", key)
 	if entry, err := HTTPCache.Get(key); err == nil {
 		w.Write(entry)
 		w.WriteHeader(http.StatusOK)
 		return
 	}
 	requestRoute := strings.TrimPrefix(r.URL.RequestURI(), util.AssignString(util.Config.AdminRestPrefix, "/admin/v2"))
-	log.Printf(" proxy %s %v request route is %s\n", r.URL.RequestURI(), util.ProxyURL, requestRoute)
+	log.Infof(" proxy %s %v request route is %s\n", r.URL.RequestURI(), util.ProxyURL, requestRoute)
 
 	// Update the headers to allow for SSL redirection
 	newRequest, err := http.NewRequest(http.MethodGet, util.Config.ProxyURL+requestRoute, nil)
@@ -155,7 +145,7 @@ func CachedProxyGETHandler(w http.ResponseWriter, r *http.Request) {
 	// log.Printf("r requestURI %s\nproxy r:: %v\n", newRequest.RequestURI, newRequest)
 	response, err := client.Do(newRequest)
 	if err != nil {
-		log.Println(err)
+		log.Errorf("%v", err)
 		util.ResponseErrorJSON(errors.New("proxy failure"), w, http.StatusInternalServerError)
 		return
 	}
@@ -169,9 +159,9 @@ func CachedProxyGETHandler(w http.ResponseWriter, r *http.Request) {
 
 	err = HTTPCache.Set(key, body)
 	if err != nil {
-		log.Printf("Could not write into cache: %s", err)
+		log.Errorf("Could not write into cache: %v", err)
 	}
-	log.Printf("set in cache key is %s\n", key)
+	log.Debugf("set in cache key is %s", key)
 
 	w.Write(body)
 }
@@ -263,7 +253,7 @@ func TenantTopicStatsHandler(w http.ResponseWriter, r *http.Request) {
 	params := u.Query()
 	offset := queryParamInt(params, "offset", 0)
 	pageSize := queryParamInt(params, "limit", 50)
-	log.Printf("offset %d limit %d", offset, pageSize)
+	log.Debugf("offset %d limit %d", offset, pageSize)
 
 	totalSize, newOffset, topics := paginateTopicStats(tenant, offset, pageSize)
 	if totalSize > 0 {
@@ -293,6 +283,57 @@ func queryParamInt(params url.Values, name string, defaultV int) int {
 		}
 	}
 	return defaultV
+}
+
+// TenantManagementHandler manages tenant CRUD operations.
+func TenantManagementHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	tenant, ok := vars["tenant"]
+	if !ok {
+		http.Error(w, "missing tenant name", http.StatusUnprocessableEntity)
+		return
+	}
+	var newPlan policy.TenantPlan
+	var err error
+
+	switch r.Method {
+	case http.MethodGet:
+		if newPlan, err = policy.TenantManager.GetTenant(tenant); err != nil {
+			util.ResponseErrorJSON(err, w, http.StatusNotFound)
+			return
+		}
+
+	case http.MethodDelete:
+		if newPlan, err = policy.TenantManager.DeleteTenant(tenant); err != nil {
+			util.ResponseErrorJSON(err, w, http.StatusInternalServerError)
+			return
+		}
+
+	case http.MethodPost:
+		decoder := json.NewDecoder(r.Body)
+		defer r.Body.Close()
+
+		doc := new(policy.TenantPlan)
+		if err := decoder.Decode(doc); err != nil {
+			util.ResponseErrorJSON(err, w, http.StatusUnprocessableEntity)
+			return
+		}
+
+		var statusCode int
+		if newPlan, statusCode, err = policy.TenantManager.UpdateTenant(tenant, *doc); err != nil {
+			log.Errorf("updateTenant %v", err)
+			util.ResponseErrorJSON(err, w, statusCode)
+			return
+		}
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	if data, err := json.Marshal(newPlan); err == nil {
+		w.Write(data)
+	}
+	w.WriteHeader(http.StatusOK)
 }
 
 // VerifyTenant verifies tenant and returns tenant name and weather verification has passed
@@ -345,7 +386,7 @@ func ExtractTenant(tokenSub string) (string, string) {
 
 func updateProxyRequest(r *http.Request) {
 	requestRoute := strings.TrimPrefix(r.URL.RequestURI(), util.AssignString(util.Config.AdminRestPrefix, "/admin/v2"))
-	log.Printf("direct proxy %s %v request route is %s\n", r.URL.RequestURI(), util.ProxyURL, requestRoute)
+	log.Debugf("direct proxy %s %v request route is %s\n", r.URL.RequestURI(), util.ProxyURL, requestRoute)
 
 	// Update the headers to allow for SSL redirection
 	r.URL.Host = util.ProxyURL.Host
