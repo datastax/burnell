@@ -64,6 +64,8 @@ type PlanPolicy struct {
 	NumOfConsumers       int           `json:"numOfConsumers"`
 	Functions            int           `json:"functions"`
 	FeatureCodes         string        `json:"featureCodes"`
+	Reserved0            string        `json:"reserved0"`
+	Reserved1            string        `json:"reserved1"`
 }
 
 // TenantPlan is the tenant plan information stored in the database
@@ -197,5 +199,5 @@ func Initialize() {
 
 // IsFeatureSupported checks if the feature is supported
 func IsFeatureSupported(feature, featureCodes string) bool {
-	return util.StrContains(strings.Split(featureCodes, ","), feature)
+	return featureCodes == FeatureAllEnabled || util.StrContains(strings.Split(featureCodes, ","), feature)
 }

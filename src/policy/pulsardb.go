@@ -207,6 +207,14 @@ func (s *TenantPolicyHandler) DeleteTenant(tenantName string) (TenantPlan, error
 	return t, nil
 }
 
+// EvaluateFeatureCode evaluate if the feature is supported under the tenant
+func (s *TenantPolicyHandler) EvaluateFeatureCode(tenant, featureCode string) bool {
+	if tenant, err := s.GetTenant(tenant); err == nil {
+		return IsFeatureSupported(featureCode, tenant.Policy.FeatureCodes)
+	}
+	return false
+}
+
 // ReconcileTenantPlan reconcile tenant plan with the requested and existing plan in the database
 func ReconcileTenantPlan(reqPlan, existingPlan TenantPlan) (TenantPlan, error) {
 	reqPlan.UpdatedAt = time.Now()

@@ -231,6 +231,12 @@ func PulsarFederatedPrometheusHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
+
+	//TODO: disable the feature since the backend database has to populated
+	/*if !policy.TenantManager.EvaluateFeatureCode(tenant, policy.BrokerMetrics) {
+		http.Error(w, "", http.StatusForbidden)
+	}
+	*/
 	data := metrics.FilterFederatedMetrics(tenant)
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(data))
