@@ -1,16 +1,16 @@
 package route
 
 import (
-	"log"
 	"net/http"
 
+	"github.com/apex/log"
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // NewRouter - create new router for HTTP routing
 func NewRouter() *mux.Router {
-	log.Println("init routes")
+	log.Warnf("init routes")
 
 	router := mux.NewRouter().StrictSlash(true)
 
@@ -120,6 +120,6 @@ func NewRouter() *mux.Router {
 	// TODO rate limit can be added per route basis
 	router.Use(LimitRate)
 
-	log.Println("router added")
+	log.Warnf("router added")
 	return router
 }

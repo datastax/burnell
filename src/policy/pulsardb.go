@@ -234,8 +234,8 @@ func ReconcileTenantPlan(reqPlan, existingPlan TenantPlan) (TenantPlan, error) {
 	reqPlan.Policy.NumOfProducers = takeNonZero(reqPlan.Policy.NumOfProducers, existingPlan.Policy.NumOfProducers)
 	reqPlan.Policy.NumOfConsumers = takeNonZero(reqPlan.Policy.NumOfConsumers, existingPlan.Policy.NumOfConsumers)
 	reqPlan.Policy.Functions = takeNonZero(reqPlan.Policy.Functions, existingPlan.Policy.Functions)
-	reqPlan.Policy.BrokerMetrics = takeFeatureStatus(reqPlan.Policy.BrokerMetrics, existingPlan.Policy.BrokerMetrics)
 	reqPlan.Policy.Name = util.AssignString(reqPlan.Policy.Name, existingPlan.Policy.Name)
+	reqPlan.Policy.FeatureCodes = util.AssignString(reqPlan.Policy.FeatureCodes, existingPlan.Policy.FeatureCodes)
 
 	if reqPlan.Policy.MessageHourRetention == 0 {
 		reqPlan.Policy.MessageHourRetention = existingPlan.Policy.MessageHourRetention
@@ -253,13 +253,6 @@ func ReconcileTenantPlan(reqPlan, existingPlan TenantPlan) (TenantPlan, error) {
 
 func takeNonZero(a, b int) int {
 	if a == 0 {
-		return b
-	}
-	return a
-}
-
-func takeFeatureStatus(a, b FeatureStatus) FeatureStatus {
-	if a == Reserved {
 		return b
 	}
 	return a

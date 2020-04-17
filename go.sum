@@ -8,6 +8,7 @@ github.com/allegro/bigcache v1.2.1 h1:hg1sY1raCwic3Vnsvje6TT7/pnZba83LeFck5NrFKS
 github.com/allegro/bigcache v1.2.1/go.mod h1:Cb/ax3seSYIx7SuZdm2G2xzfwmv3TPSk2ucNfQESPXM=
 github.com/apache/pulsar-client-go v0.1.0-candidate-1 h1:ovWsOgZdVCrBt+1gIT72BzzBbrdCU9uIZw+QCboj8H0=
 github.com/apache/pulsar-client-go v0.1.0-candidate-1/go.mod h1:G+CQVHnh2EPfNEQXOuisIDAyPMiKnzz4Vim/kjtj4U4=
+github.com/apex/log v1.1.2 h1:bnDuVoi+o98wOdVqfEzNDlY0tcmBia7r4YkjS9EqGYk=
 github.com/apex/log v1.1.2/go.mod h1:SyfRweFO+TlkIJ3DVizTSeI1xk7jOIIqOnUPZQTTsww=
 github.com/apex/logs v0.0.3/go.mod h1:XzxuLZ5myVHDy9SAmYpamKKRNApGj54PfYLcFrXqDwo=
 github.com/aphistic/golf v0.0.0-20180712155816-02c07f170c5a/go.mod h1:3NqKYiepwy8kCu4PNA+aP7WUV72eXWJeP9/r3/K9aLE=

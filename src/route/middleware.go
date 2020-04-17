@@ -2,10 +2,10 @@ package route
 
 //middleware includes auth, rate limit, and etc.
 import (
-	"log"
 	"net/http"
 	"strings"
 
+	"github.com/apex/log"
 	"github.com/gorilla/mux"
 	"github.com/kafkaesque-io/burnell/src/util"
 )
@@ -22,7 +22,7 @@ func AuthVerifyJWT(next http.Handler) http.Handler {
 		subjects, err := util.JWTAuth.GetTokenSubject(tokenStr)
 
 		if err == nil {
-			log.Printf("Authenticated with subjects %s", subjects)
+			log.Infof("Authenticated with subjects %s", subjects)
 			r.Header.Set(injectedSubs, subjects)
 			next.ServeHTTP(w, r)
 		} else {
@@ -43,7 +43,7 @@ func AuthVerifyTenantJWT(next http.Handler) http.Handler {
 			return
 		}
 
-		log.Printf("Authenticated with subjects %s", subjects)
+		log.Infof("Authenticated with subjects %s", subjects)
 		r.Header.Set(injectedSubs, subjects)
 		vars := mux.Vars(r)
 		if tenantName, ok := vars["tenant"]; ok {
@@ -65,7 +65,7 @@ func SuperRoleRequired(next http.Handler) http.Handler {
 		subject, err := util.JWTAuth.GetTokenSubject(tokenStr)
 
 		if err == nil && util.StrContains(util.SuperRoles, subject) {
-			log.Println("superroles Authenticated")
+			log.Infof("superroles Authenticated")
 			next.ServeHTTP(w, r)
 		} else {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)

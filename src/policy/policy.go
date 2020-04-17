@@ -3,6 +3,7 @@ package policy
 import (
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/kafkaesque-io/burnell/src/util"
@@ -29,18 +30,6 @@ const (
 	Deleted
 )
 
-// FeatureStatus uses 1 or 2 to avoid 0 as it is the default value instantiated with
-type FeatureStatus int
-
-const (
-	// Reserved makes sure the status always starting with 1
-	Reserved FeatureStatus = iota
-	// Enabled the feautre is enabled
-	Enabled
-	// Disabled the feautre is disabled
-	Disabled
-)
-
 const (
 	// FreeTier is free tier tenant policy
 	FreeTier = "free"
@@ -54,7 +43,14 @@ const (
 	PrivateTier = "private"
 )
 
-const nsToHour = 1000 * 1000 * 1000 * 3600
+const (
+	// FeatureAllEnabled indicates all features are enabled
+	FeatureAllEnabled = "all-enabled"
+	// FeatureAllDisabled indicates all features are disabled
+	FeatureAllDisabled = "all-disabled"
+	// BrokerMetrics is the feature to expose broker prometheus metrics
+	BrokerMetrics = "broker-metrics"
+)
 
 // PlanPolicy is the tenant policy
 // this allows additional customization and feature licensing
@@ -67,7 +63,7 @@ type PlanPolicy struct {
 	NumOfProducers       int           `json:"numofProducers"`
 	NumOfConsumers       int           `json:"numOfConsumers"`
 	Functions            int           `json:"functions"`
-	BrokerMetrics        FeatureStatus `json:"brokerMetrics"`
+	FeatureCodes         string        `json:"featureCodes"`
 }
 
 // TenantPlan is the tenant plan information stored in the database
@@ -109,7 +105,7 @@ var TenantPlanPolicies = PlanPolicies{
 		NumOfProducers:       3,
 		NumOfConsumers:       5,
 		Functions:            1,
-		BrokerMetrics:        Disabled,
+		FeatureCodes:         FeatureAllDisabled,
 	},
 	StarterPlan: PlanPolicy{
 		Name:                 StarterTier,
@@ -120,7 +116,7 @@ var TenantPlanPolicies = PlanPolicies{
 		NumOfProducers:       30,
 		NumOfConsumers:       50,
 		Functions:            10,
-		BrokerMetrics:        Disabled,
+		FeatureCodes:         FeatureAllDisabled,
 	},
 	ProductionPlan: PlanPolicy{
 		Name:                 ProductionTier,
@@ -131,7 +127,7 @@ var TenantPlanPolicies = PlanPolicies{
 		NumOfProducers:       60,
 		NumOfConsumers:       100,
 		Functions:            20,
-		BrokerMetrics:        Disabled,
+		FeatureCodes:         FeatureAllDisabled,
 	},
 	DedicatedPlan: PlanPolicy{
 		Name:                 DedicatedTier,
@@ -142,7 +138,7 @@ var TenantPlanPolicies = PlanPolicies{
 		NumOfProducers:       300,
 		NumOfConsumers:       500,
 		Functions:            30,
-		BrokerMetrics:        Disabled,
+		FeatureCodes:         FeatureAllDisabled,
 	},
 	PrivatePlan: PlanPolicy{
 		Name:                 PrivateTier,
@@ -153,7 +149,7 @@ var TenantPlanPolicies = PlanPolicies{
 		NumOfProducers:       -1,
 		NumOfConsumers:       -1,
 		Functions:            -1,
-		BrokerMetrics:        Enabled,
+		FeatureCodes:         FeatureAllEnabled,
 	},
 }
 
@@ -197,4 +193,9 @@ func Initialize() {
 	if err := TenantManager.Setup(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+// IsFeatureSupported checks if the feature is supported
+func IsFeatureSupported(feature, featureCodes string) bool {
+	return util.StrContains(strings.Split(featureCodes, ","), feature)
 }

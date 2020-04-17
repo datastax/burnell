@@ -3,13 +3,13 @@ package route
 import (
 	"encoding/json"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/apex/log"
 	"github.com/kafkaesque-io/burnell/src/util"
 )
 
@@ -18,39 +18,39 @@ import (
 var topicStats map[string]map[string]interface{}
 var topicStatsLock = sync.RWMutex{}
 
+var statsLog = log.WithFields(log.Fields{"app": "topic stats cache"})
+
 func brokersStatsQuery() {
 	requestBrokersURL := util.SingleJoiningSlash(util.Config.ProxyURL, "brokers/"+util.Config.ClusterName)
-	log.Println(requestBrokersURL)
+	statsLog.Infof(requestBrokersURL)
 	// Update the headers to allow for SSL redirection
 	newRequest, err := http.NewRequest(http.MethodGet, requestBrokersURL, nil)
 	if err != nil {
-		log.Println(err)
+		statsLog.Errorf("make http request borkers %s error %v", requestBrokersURL, err)
 		return
 	}
 	newRequest.Header.Add("Authorization", "Bearer "+util.Config.PulsarToken)
 	client := &http.Client{}
 	response, err := client.Do(newRequest)
 	if err != nil {
-		log.Println(err)
+		statsLog.Errorf("GET borkers %s error %v", requestBrokersURL, err)
 		return
 	}
 
 	body, err := ioutil.ReadAll(response.Body)
 	defer response.Body.Close()
 	if err != nil {
-		log.Println(err)
+		statsLog.Errorf("GET borkers %s read response body error %v", requestBrokersURL, err)
 		return
 	}
-	log.Println("after read io")
 	var brokers []string
 	if err = json.Unmarshal(body, &brokers); err != nil {
-		log.Println("before read io")
-		log.Println(err)
+		statsLog.Errorf("GET borkers %s unmarshal response body error %v", requestBrokersURL, err)
 		return
 	}
 
 	localStats := make(map[string]map[string]interface{})
-	log.Printf("%v", brokers)
+	statsLog.Infof("a list of brokers - %v", brokers)
 	// brokers = []string{util.Config.ProxyURL, util.Config.ProxyURL, util.Config.ProxyURL}
 	for _, v := range brokers {
 		stats := brokerStatsQuery(v)
@@ -72,7 +72,7 @@ func brokersStatsQuery() {
 	topicStats = localStats
 	topicStatsLock.Unlock()
 
-	log.Printf("total size %d, %d\n", len(localStats), len(topicStats))
+	statsLog.Infof("total size %d, %d\n", len(localStats), len(topicStats))
 }
 
 func brokerStatsQuery(urlString string) map[string]map[string]interface{} {
@@ -80,57 +80,56 @@ func brokerStatsQuery(urlString string) map[string]map[string]interface{} {
 		urlString = "http://" + urlString
 	}
 	topicStatsURL := util.SingleJoiningSlash(urlString, "admin/v2/broker-stats/topics")
-	log.Printf(" proxy request route is %s\n", topicStatsURL)
+	statsLog.Debugf(" proxy request route is %s\n", topicStatsURL)
 
 	stats := make(map[string]map[string]interface{})
 
 	// Update the headers to allow for SSL redirection
 	newRequest, err := http.NewRequest(http.MethodGet, topicStatsURL, nil)
 	if err != nil {
-		log.Println(err)
+		statsLog.Errorf("make http request %s error %v", topicStatsURL, err)
 		return stats
 	}
 	newRequest.Header.Add("user-agent", "burnell")
 	newRequest.Header.Add("Authorization", "Bearer "+util.Config.PulsarToken)
 	client := &http.Client{}
-	// log.Printf("r requestURI %s\nproxy r:: %v\n", newRequest.RequestURI, newRequest)
 	response, err := client.Do(newRequest)
 	if err != nil {
-		log.Println(err)
+		statsLog.Errorf("make http request %s error %v", topicStatsURL, err)
 		return stats
 	}
 
 	body, err := ioutil.ReadAll(response.Body)
 	defer response.Body.Close()
 	if err != nil {
-		log.Println(err)
+		statsLog.Errorf("GET broker topic stats request %s error %v", topicStatsURL, err)
 		return stats
 	}
 
 	// tenant's namespace/bundle hash/persistent/topicFullName
 	var result map[string]map[string]map[string]map[string]interface{}
 	if err = json.Unmarshal(body, &result); err != nil {
-		log.Println(err)
+		statsLog.Errorf("GET broker topic stats request %s unmarshal error %v", topicStatsURL, err)
 		return stats
 	}
 	for k, v := range result {
 		tenant := strings.Split(k, "/")[0]
-		log.Printf("namespace %s tenant %s\n", k, tenant)
+		statsLog.Debugf("namespace %s tenant %s", k, tenant)
 		topics := make(map[string]interface{})
 
 		for bundleKey, v2 := range v {
-			log.Printf("  bundle %s \n", bundleKey)
+			statsLog.Debugf("  bundle %s", bundleKey)
 			for persistentKey, v3 := range v2 {
-				log.Printf("    %s key\n", persistentKey)
+				statsLog.Debugf("    %s key", persistentKey)
 				for topicFn, v4 := range v3 {
-					log.Printf("      topic name %s\n", topicFn)
+					statsLog.Debugf("      topic name %s", topicFn)
 					topics[topicFn] = v4
 				}
 			}
 		}
 		stats[tenant] = topics
 	}
-	log.Printf("cache size %d\n", len(stats))
+	statsLog.Infof("cache size %d\n", len(stats))
 	return stats
 }
 

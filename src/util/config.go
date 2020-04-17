@@ -3,8 +3,8 @@ package util
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
-	"log"
 	"net/url"
 	"os"
 	"reflect"
@@ -12,6 +12,7 @@ import (
 
 	"unicode"
 
+	"github.com/apex/log"
 	"github.com/ghodss/yaml"
 	"github.com/kafkaesque-io/burnell/src/icrypto"
 )
@@ -22,6 +23,7 @@ const DefaultConfigFile = "../config/burnell.yml"
 
 // Configuration - this server's configuration
 type Configuration struct {
+	LogLevel        string `json:"logLevel"`
 	PORT            string `json:"PORT"`
 	ProxyURL        string `json:"ProxyURL"`
 	AdminRestPrefix string `json:"AdminRestPrefix"`
@@ -63,13 +65,14 @@ var SuperRoles []string
 // Init initializes configuration
 func Init() {
 	configFile := AssignString(os.Getenv("BURNELL_CONFIG"), DefaultConfigFile)
-	log.Printf("Configuration built from file - %s", configFile)
 	ReadConfigFile(configFile)
 
+	log.SetLevel(logLevel(Config.LogLevel))
+	log.Warnf("Configuration built from file - %s", configFile)
 	JWTAuth = icrypto.NewRSAKeyPair(Config.PulsarPrivateKey, Config.PulsarPublicKey)
 	uri, err := url.ParseRequestURI(Config.ProxyURL)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 	ProxyURL = uri
 	AdminRestPrefix = Config.AdminRestPrefix
@@ -83,7 +86,7 @@ func Init() {
 func ReadConfigFile(configFile string) {
 	fileBytes, err := ioutil.ReadFile(configFile)
 	if err != nil {
-		log.Printf("failed to load configuration file %s", configFile)
+		fmt.Printf("failed to load configuration file %s", configFile)
 		panic(err)
 	}
 
@@ -116,7 +119,7 @@ func ReadConfigFile(configFile string) {
 		}
 	}
 
-	log.Println(Config)
+	fmt.Printf("configuration loaded is %v", Config)
 }
 
 //GetConfig returns a reference to the Configuration
@@ -134,4 +137,19 @@ func hasJSONPrefix(buf []byte) bool {
 func hasPrefix(buf []byte, prefix []byte) bool {
 	trim := bytes.TrimLeftFunc(buf, unicode.IsSpace)
 	return bytes.HasPrefix(trim, prefix)
+}
+
+func logLevel(level string) log.Level {
+	switch strings.TrimSpace(strings.ToLower(level)) {
+	case "debug":
+		return log.DebugLevel
+	case "warn":
+		return log.WarnLevel
+	case "error":
+		return log.ErrorLevel
+	case "fatal":
+		return log.FatalLevel
+	default:
+		return log.InfoLevel
+	}
 }
