@@ -26,6 +26,7 @@ func NewRouter() *mux.Router {
 	router.Path("/k/tenant/{tenant}").Methods(http.MethodGet, http.MethodDelete, http.MethodPost).Name("kafkaesque tenant management").
 		Handler(SuperRoleRequired(http.HandlerFunc(TenantManagementHandler)))
 
+	// Collect tenant topics statistics in one call
 	router.Path("/stats/topics/{tenant}").Methods(http.MethodGet).Name("tenant topic stats").
 		Handler(AuthVerifyTenantJWT(http.HandlerFunc(TenantTopicStatsHandler)))
 
@@ -116,6 +117,12 @@ func NewRouter() *mux.Router {
 	//
 	router.PathPrefix("/admin/v2/tenants").Methods(http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete).
 		Handler(SuperRoleRequired(http.HandlerFunc(CachedProxyHandler)))
+
+	//
+	// /functions
+	//
+	router.PathPrefix("/admin/v2/functions/{tenant}").Methods(http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete).
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(CachedProxyHandler)))
 
 	// TODO rate limit can be added per route basis
 	router.Use(LimitRate)

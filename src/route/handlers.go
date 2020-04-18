@@ -142,7 +142,6 @@ func CachedProxyGETHandler(w http.ResponseWriter, r *http.Request) {
 	//r.RequestURI = util.ProxyURL.RequestURI() + requestRoute
 	newRequest.Header.Add("Authorization", "Bearer "+util.Config.PulsarToken)
 	client := &http.Client{}
-	// log.Printf("r requestURI %s\nproxy r:: %v\n", newRequest.RequestURI, newRequest)
 	response, err := client.Do(newRequest)
 	if err != nil {
 		log.Errorf("%v", err)
@@ -191,9 +190,15 @@ func FunctionLogsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var reqObj logclient.FunctionLogRequest
-	decoder := json.NewDecoder(r.Body)
-	defer r.Body.Close()
-	decoder.Decode(&reqObj)
+	u, _ := url.Parse(r.URL.String())
+	params := u.Query()
+	reqObj.BackwardPosition = int64(queryParamInt(params, "backwardpos", 0))
+	reqObj.ForwardPosition = int64(queryParamInt(params, "forwardpos", 0))
+	reqObj.Bytes = int64(queryParamInt(params, "bytes", 0))
+	log.Infof("function log query params %v", reqObj)
+	if reqObj.BackwardPosition > 0 && reqObj.ForwardPosition > 0 {
+		http.Error(w, "backwardpos and forwardpos cannot be specified at the same time", http.StatusBadRequest)
+	}
 
 	clientRes, err := logclient.GetFunctionLog(tenant+namespace+funcName, reqObj)
 	if err != nil {
@@ -201,7 +206,7 @@ func FunctionLogsHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "log server returned "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 	// fmt.Printf("pos %d, %d\n", clientRes.BackwardPosition, clientRes.ForwardPosition)
@@ -244,11 +249,6 @@ func PulsarFederatedPrometheusHandler(w http.ResponseWriter, r *http.Request) {
 
 // TenantTopicStatsHandler returns tenant topic statistics
 func TenantTopicStatsHandler(w http.ResponseWriter, r *http.Request) {
-	subject := r.Header.Get("injectedSubs")
-	if subject == "" {
-		http.Error(w, "missing subject", http.StatusUnauthorized)
-		return
-	}
 	vars := mux.Vars(r)
 	tenant, ok := vars["tenant"]
 	if !ok {

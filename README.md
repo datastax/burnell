@@ -12,6 +12,45 @@ Burnell is a Pulsar proxy. It offers the following features.
 
 ## Rest API
 
+### Tenant function log retrieval
+It is a rolling log retrieval from the function worker.
+
+#### Function log retrieval endpoint and query parameters
+By default, the endpoint will return the last few lines of the latest log.
+```
+/function-logs/{tenant}/{namespace}/{function-name}
+```
+Example -
+```
+/function-logs/ming-luo/namespace2/for-monitor-function
+```
+
+Query parameters allows retrieve previous logs or newer logs.
+```
+/function-logs/{tenant}/{namespace}/{function-name}?bytes=1000?backwardpos=45000
+```
+The response body returns logs in complete lines (EOL) up to the maximum bytes specified in the `bytes` query parameters.
+
+`backwardpos` and `forwardpos` allows the log to be retrieved from either backward or forward position from where the log rolling initially started. The response body will specify the current backward and forward positions that can be used for the next calls query parameters.
+```
+{
+    "BackwardPosition": 47987,
+    "ForwardPosition": 49427,
+    "Logs": "[2020-03-30 12:31:57 +0000] [ERROR] log.py: Traceback (most recent call last):\n[2020-03-30 12:31:57 +0000] [ERROR] log.py:   File \"/pulsar/instances/python-instance/python_instance_main.py\", line 211, in <module>\n[2020-03-30 12:31:57 +0000] [ERROR] log.py: main()\n[2020-03-30 12:31:57 +0000] [ERROR] log.py:   File \"/pulsar/instances/python-instance/python_instance_main.py\", line 192, in main\n[2020-03-30 12:31:57 +0000] [ERROR] log.py: pyinstance.run()\n[2020-03-30 12:31:57 +0000] [ERROR] log.py:   File \"/pulsar/instances/python-instance/python_instance.py\", line 189, in run\n[2020-03-30 12:31:57 +0000] [ERROR] log.py: **consumer_args\n"
+}
+```
+
+
+### Tenant topics statistics collector
+
+#### Topic stats endpoint
+```
+/stats/topics/{tenant}?limit=10&offset=0
+```
+```
+{"tenant":"ming-luo","sessionId":"reserverd for snapshot iteration","offset":1,"total":1,"data":{"persistent://ming-luo/namespace2/test-topic3":{"averageMsgSize":0,"backlogSize":0,"msgRateIn":0,"msgRateOut":0,"msgThroughputIn":0,"msgThroughputOut":0,"pendingAddEntriesCount":0,"producerCount":0,"publishers":[],"replication":{},"storageSize":0,"subscriptions":{"mysub":{"consumers":[],"msgBacklog":0,"msgRateExpired":0,"msgRateOut":0,"msgRateRedeliver":0,"msgThroughputOut":0,"numberOfEntriesSinceFirstNotAckedMessage":1,"totalNonContiguousDeletedMessagesRange":0,"type":"Exclusive"}}}}}
+```
+
 ### Tenant CRUD
 
 #### Resource endpoint

@@ -26,26 +26,26 @@ func brokersStatsQuery() {
 	// Update the headers to allow for SSL redirection
 	newRequest, err := http.NewRequest(http.MethodGet, requestBrokersURL, nil)
 	if err != nil {
-		statsLog.Errorf("make http request borkers %s error %v", requestBrokersURL, err)
+		statsLog.Errorf("make http request brokers %s error %v", requestBrokersURL, err)
 		return
 	}
 	newRequest.Header.Add("Authorization", "Bearer "+util.Config.PulsarToken)
 	client := &http.Client{}
 	response, err := client.Do(newRequest)
 	if err != nil {
-		statsLog.Errorf("GET borkers %s error %v", requestBrokersURL, err)
+		statsLog.Errorf("GET brokers %s error %v", requestBrokersURL, err)
 		return
 	}
 
 	body, err := ioutil.ReadAll(response.Body)
 	defer response.Body.Close()
 	if err != nil {
-		statsLog.Errorf("GET borkers %s read response body error %v", requestBrokersURL, err)
+		statsLog.Errorf("GET brokers %s read response body error %v", requestBrokersURL, err)
 		return
 	}
 	var brokers []string
 	if err = json.Unmarshal(body, &brokers); err != nil {
-		statsLog.Errorf("GET borkers %s unmarshal response body error %v", requestBrokersURL, err)
+		statsLog.Errorf("GET brokers %s unmarshal response body error %v", requestBrokersURL, err)
 		return
 	}
 

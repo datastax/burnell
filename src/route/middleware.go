@@ -39,7 +39,7 @@ func AuthVerifyTenantJWT(next http.Handler) http.Handler {
 		subjects, err := util.JWTAuth.GetTokenSubject(tokenStr)
 
 		if err != nil {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			http.Error(w, "failed to obtain subject", http.StatusUnauthorized)
 			return
 		}
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"strings"
 	"sync"
@@ -271,4 +272,53 @@ func takeTenantStatus(a, b TenantStatus) TenantStatus {
 		return b
 	}
 	return a
+}
+
+// EvaluateNamespaceLimit evaluates the requested namespace addition would over the limit
+func (s *TenantPolicyHandler) EvaluateNamespaceLimit(tenant string) (bool, error) {
+	s.tenantsLock.RLock()
+	t, ok := s.tenants[tenant]
+	s.tenantsLock.RUnlock()
+	if !ok {
+		return false, fmt.Errorf("not found")
+	}
+
+	namespaces, err := AdminAPIGETRespStringArray("namespaces/" + tenant)
+	if err != nil {
+		return false, err
+	}
+	return t.Policy.NumOfNamespaces >= (len(namespaces) + 1), nil
+}
+
+// AdminAPIGETRespStringArray is a template tenant call that returns an array of string
+func AdminAPIGETRespStringArray(subroute string) ([]string, error) {
+	requestURL := util.SingleJoiningSlash(util.Config.ProxyURL, subroute)
+	log.Infof(requestURL)
+	empty := make([]string, 1)
+	newRequest, err := http.NewRequest(http.MethodGet, requestURL, nil)
+	if err != nil {
+		log.Errorf("make http request request url %s error %v", requestURL, err)
+		return empty, err
+	}
+	newRequest.Header.Add("Authorization", "Bearer "+util.Config.PulsarToken)
+	client := &http.Client{}
+	response, err := client.Do(newRequest)
+	if err != nil {
+		log.Errorf("GET request url %s error %v", requestURL, err)
+		return empty, err
+	}
+
+	body, err := ioutil.ReadAll(response.Body)
+	defer response.Body.Close()
+	if err != nil {
+		log.Errorf("GET request url %s read response body error %v", requestURL, err)
+		return empty, err
+	}
+	var respStrs []string
+	if err = json.Unmarshal(body, &respStrs); err != nil {
+		log.Errorf("GET request url %s unmarshal response body error %v", requestURL, err)
+		return empty, err
+	}
+
+	return respStrs, nil
 }

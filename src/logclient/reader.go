@@ -3,12 +3,12 @@ package logclient
 import (
 	"context"
 	"fmt"
-	"log"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/apache/pulsar-client-go/pulsar"
+	"github.com/apex/log"
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
 
@@ -26,6 +26,8 @@ type FunctionLogResponse struct {
 
 // ErrNotFoundFunction error for function not found
 var ErrNotFoundFunction = fmt.Errorf("function not found")
+
+var logger = log.WithFields(log.Fields{"app": "pulsar-function-listener"})
 
 // FunctionLogRequest is HTTP resquest object
 type FunctionLogRequest struct {
@@ -53,8 +55,13 @@ type FunctionType struct {
 type liveSignal struct{}
 
 // functionMap stores FunctionType object and the key is tenant+namespace+function name
-var functionMap map[string]FunctionType
+var functionMap = make(map[string]FunctionType)
 var fnMpLock = sync.RWMutex{}
+
+// Track the number of functions used by each tenant
+// I could use the above functionMap as double map but complexity may not be justified
+var tenantFunctionCounter = make(map[string]int)
+var tenantFnCounterLock = sync.RWMutex{}
 
 // ReadFunctionMap reads a thread safe map
 func ReadFunctionMap(key string) (FunctionType, bool) {
@@ -82,10 +89,49 @@ func DeleteFunctionMap(key string) bool {
 	return false
 }
 
+// IncrTenantFunc increases the number functions by 1
+func IncrTenantFunc(tenant string) int {
+	tenantFnCounterLock.Lock()
+	defer tenantFnCounterLock.Unlock()
+	if num, ok := tenantFunctionCounter[tenant]; ok {
+		tenantFunctionCounter[tenant] = num + 1
+		return num
+	}
+	tenantFunctionCounter[tenant] = 1
+	return 1
+
+}
+
+// DecrTenantFunc decreases the number functions by 1
+func DecrTenantFunc(tenant string) int {
+	tenantFnCounterLock.Lock()
+	defer tenantFnCounterLock.Unlock()
+	if num, ok := tenantFunctionCounter[tenant]; ok {
+		if num > 1 {
+			tenantFunctionCounter[tenant] = num - 1
+			return num - 1
+		}
+		delete(tenantFunctionCounter, tenant)
+	}
+	return 0
+}
+
+// TenantFunctionCount returns the number of functions under the tenant
+func TenantFunctionCount(tenant string) int {
+	tenantFnCounterLock.RLock()
+	defer tenantFnCounterLock.RUnlock()
+	if num, ok := tenantFunctionCounter[tenant]; ok {
+		return num
+	}
+	return 0
+}
+
 // ReaderLoop continuously reads messages from function metadata topic
 func ReaderLoop(sig chan *liveSignal) {
-	defer func(s chan *liveSignal) { s <- &liveSignal{} }(sig)
-	functionMap = make(map[string]FunctionType)
+	defer func(s chan *liveSignal) {
+		logger.Errorf("function listener terminated")
+		s <- &liveSignal{}
+	}(sig)
 
 	// Configuration variables pertaining to this reader
 	tokenStr := util.GetConfig().PulsarToken
@@ -109,7 +155,7 @@ func ReaderLoop(sig chan *liveSignal) {
 	// Pulsar client
 	client, err := pulsar.NewClient(clientOpt)
 	if err != nil {
-		log.Println(err)
+		logger.Errorf("pulsar.NewClient %v", err)
 		return
 	}
 
@@ -121,7 +167,7 @@ func ReaderLoop(sig chan *liveSignal) {
 	})
 
 	if err != nil {
-		log.Println(err)
+		logger.Errorf("pulsar.CreateReader %v", err)
 		return
 	}
 
@@ -133,23 +179,24 @@ func ReaderLoop(sig chan *liveSignal) {
 	for {
 		msg, err := reader.Next(ctx)
 		if err != nil {
-			log.Println(err)
+			logger.Errorf("pulsar.reader.Next %v", err)
 			return
 		}
 		sr := pb.ServiceRequest{}
-		// fmt.Printf("Received message : %v", string(msg.Payload()))
 		proto.Unmarshal(msg.Payload(), &sr)
 		ParseServiceRequest(sr.GetFunctionMetaData(), sr.GetWorkerId(), sr.GetServiceRequestType())
+		//logger.Infof("total number of tenants %d, the total number of functions %d", len(tenantFunctionCounter), len(functionMap))
 	}
-
 }
 
 // ParseServiceRequest build a Function object based on Pulsar function metadata message
 func ParseServiceRequest(sr *pb.FunctionMetaData, workerID string, serviceType pb.ServiceRequest_ServiceRequestType) {
 	fd := sr.FunctionDetails
 	key := fd.GetTenant() + fd.GetNamespace() + fd.GetName()
+	tenant := fd.GetTenant()
 	if serviceType == pb.ServiceRequest_DELETE {
 		DeleteFunctionMap(key)
+		DecrTenantFunc(tenant)
 	} else {
 		f := FunctionType{
 			Tenant:           fd.GetTenant(),
@@ -169,6 +216,7 @@ func ParseServiceRequest(sr *pb.FunctionMetaData, workerID string, serviceType p
 			f.InputTopics = append(f.InputTopics, fd.Source.TopicsPattern)
 		}
 		WriteFunctionMap(key, f)
+		IncrTenantFunc(tenant)
 	}
 }
 
@@ -197,11 +245,11 @@ func GetFunctionLog(functionName string, rd FunctionLogRequest) (FunctionLogResp
 	}
 	// Set up a connection to the server.
 	address := function.FunctionWorkerID + util.AssignString(util.GetConfig().LogServerPort, logstream.DefaultLogServerPort)
-	fmt.Printf("found function %s\n", address)
 	// address = logstream.DefaultLogServerPort
+	logger.Infof("found function %s", address)
 	conn, err := grpc.Dial(address, grpc.WithInsecure(), grpc.WithBlock(), grpc.WithTimeout(2*time.Second))
 	if err != nil {
-		fmt.Println(err)
+		logger.Errorf("grpc.Dial to log server error %v", err)
 		return FunctionLogResponse{}, err
 	}
 	defer conn.Close()
@@ -214,7 +262,7 @@ func GetFunctionLog(functionName string, rd FunctionLogRequest) (FunctionLogResp
 	if rd.Bytes > 0 {
 		bytes = rd.Bytes
 	}
-	direction := requestDirection(rd.Direction)
+	direction := requestDirection(rd)
 	req := &logstream.ReadRequest{
 		File:          logstream.FunctionLogPath(function.Tenant, function.Namespace, function.FunctionName, 0),
 		Direction:     direction,
@@ -222,14 +270,14 @@ func GetFunctionLog(functionName string, rd FunctionLogRequest) (FunctionLogResp
 		ForwardIndex:  rd.ForwardPosition,
 		BackwardIndex: rd.BackwardPosition,
 	}
-	log.Printf("making a remote call")
+	logger.Debugf("making a remote call %v", req)
 	res, err := c.Read(ctx, req)
 	if err != nil {
-		fmt.Printf("failed : %v\n", err)
+		logger.Errorf("grcp call to log server failed : %v", err)
 		return FunctionLogResponse{}, fmt.Errorf("timed out")
 	}
 	text, offset := adjustLogs(res.GetLogs())
-	// log.Printf("logs: %s %v %v", res.GetLogs(), res.GetBackwardIndex(), res.GetForwardIndex())
+	logger.Debugf("logs: %s %v %v", res.GetLogs(), res.GetBackwardIndex(), res.GetForwardIndex())
 	backwardPos := res.GetBackwardIndex()
 	forwardPos := res.GetForwardIndex()
 	if direction == logstream.ReadRequest_FORWARD {
@@ -244,8 +292,8 @@ func GetFunctionLog(functionName string, rd FunctionLogRequest) (FunctionLogResp
 	}, nil
 }
 
-func requestDirection(r string) logstream.ReadRequest_Direction {
-	if strings.TrimSpace(r) == "forward" {
+func requestDirection(rd FunctionLogRequest) logstream.ReadRequest_Direction {
+	if rd.ForwardPosition > 0 {
 		return logstream.ReadRequest_FORWARD
 	}
 	return logstream.ReadRequest_BACKWARD
