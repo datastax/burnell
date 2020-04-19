@@ -154,8 +154,8 @@ func CachedProxyGETHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(body)
 }
 
-// NamespaceProxyHandler - authorizes namespace proxy operation based on tenant plan type
-func NamespaceProxyHandler(w http.ResponseWriter, r *http.Request) {
+// NamespacePolicyProxyHandler - authorizes namespace proxy operation based on tenant plan type
+func NamespacePolicyProxyHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	if tenant, ok := vars["tenant"]; ok {
 		if policy.TenantManager.IsFreeStarterPlan(tenant) {
@@ -165,12 +165,12 @@ func NamespaceProxyHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusUnauthorized)
 }
 
-// TopicProxyHandler - authorizes topic proxy operation based on tenant plan type
+// TopicProxyHandler enforces the number of topic based on the plan type
 func TopicProxyHandler(w http.ResponseWriter, r *http.Request) {
 	limitEnforceProxyHandler(w, r, policy.TenantManager.EvaluateTopicLimit)
 }
 
-// NamespaceLimitEnforceProxyHandler enforces namespace limit
+// NamespaceLimitEnforceProxyHandler enforces the number of namespace limit based on the plan type
 func NamespaceLimitEnforceProxyHandler(w http.ResponseWriter, r *http.Request) {
 	limitEnforceProxyHandler(w, r, policy.TenantManager.EvaluateNamespaceLimit)
 }

@@ -185,7 +185,7 @@ func (s *TenantPolicyHandler) GetTenant(tenantName string) (TenantPlan, error) {
 	if t, ok := s.tenants[tenantName]; ok {
 		return t, nil
 	}
-	return TenantPlan{}, fmt.Errorf("not found")
+	return TenantPlan{}, fmt.Errorf("tenant not found in database")
 }
 
 // DeleteTenant gets a tenant by the name
@@ -297,12 +297,12 @@ func (s *TenantPolicyHandler) EvaluateTopicLimit(tenant string) (bool, error) {
 	t, ok := s.tenants[tenant]
 	s.tenantsLock.RUnlock()
 	if !ok {
-		return false, fmt.Errorf("tenant %s not found in plan policy database", tenant)
+		return false, fmt.Errorf("unable to find tenant %s in the plan policy database", tenant)
 	}
 
 	counts := CountTopics(tenant)
 	if counts < 0 {
-		return false, fmt.Errorf("unable to find tenant %s in the database", tenant)
+		return false, fmt.Errorf("unable to find tenant %s in the topic listener database", tenant)
 	}
 	return counts > t.Policy.NumOfTopics, nil
 }

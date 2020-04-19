@@ -63,27 +63,27 @@ func NewRouter() *mux.Router {
 	// /namespaces
 	// list of routes in the look up order from more restricted to relaxed including JWT role authorization
 	router.PathPrefix("/admin/v2/namespaces/{tenant}/{namespace}/maxConsumersPerSubscription").Methods(http.MethodPost).
-		Handler(AuthVerifyTenantJWT(http.HandlerFunc(NamespaceProxyHandler)))
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(NamespacePolicyProxyHandler)))
 	router.PathPrefix("/admin/v2/namespaces/{tenant}/{namespace}/maxConsumersPerTopic").Methods(http.MethodPost).
-		Handler(AuthVerifyTenantJWT(http.HandlerFunc(NamespaceProxyHandler)))
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(NamespacePolicyProxyHandler)))
 	router.PathPrefix("/admin/v2/namespaces/{tenant}/{namespace}/maxProducersPerTopic").Methods(http.MethodPost).
-		Handler(AuthVerifyTenantJWT(http.HandlerFunc(NamespaceProxyHandler)))
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(NamespacePolicyProxyHandler)))
 	router.PathPrefix("/admin/v2/namespaces/{tenant}/{namespace}/maxUnackedMessagesPerSubscription").Methods(http.MethodPost).
-		Handler(AuthVerifyTenantJWT(http.HandlerFunc(NamespaceProxyHandler)))
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(NamespacePolicyProxyHandler)))
 	router.PathPrefix("/admin/v2/namespaces/{tenant}/{namespace}/messageTTL").Methods(http.MethodPost).
-		Handler(AuthVerifyTenantJWT(http.HandlerFunc(NamespaceProxyHandler)))
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(NamespacePolicyProxyHandler)))
 	router.PathPrefix("/admin/v2/namespaces/{tenant}/{namespace}/offloadDeletionLagMs").Methods(http.MethodPut, http.MethodDelete).
-		Handler(AuthVerifyTenantJWT(http.HandlerFunc(NamespaceProxyHandler)))
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(NamespacePolicyProxyHandler)))
 	router.PathPrefix("/admin/v2/namespaces/{tenant}/{namespace}/offloadPolicies").Methods(http.MethodPost).
-		Handler(AuthVerifyTenantJWT(http.HandlerFunc(NamespaceProxyHandler)))
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(NamespacePolicyProxyHandler)))
 	router.PathPrefix("/admin/v2/namespaces/{tenant}/{namespace}/offloadThreshold").Methods(http.MethodPut).
-		Handler(AuthVerifyTenantJWT(http.HandlerFunc(NamespaceProxyHandler)))
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(NamespacePolicyProxyHandler)))
 	router.PathPrefix("/admin/v2/namespaces/{tenant}/{namespace}/schemaAutoUpdateCompatibilityStrategy").Methods(http.MethodPut).
-		Handler(AuthVerifyTenantJWT(http.HandlerFunc(NamespaceProxyHandler)))
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(NamespacePolicyProxyHandler)))
 	router.PathPrefix("/admin/v2/namespaces/{tenant}/{namespace}/schemaCompatibilityStrategy").Methods(http.MethodPut).
-		Handler(AuthVerifyTenantJWT(http.HandlerFunc(NamespaceProxyHandler)))
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(NamespacePolicyProxyHandler)))
 	router.PathPrefix("/admin/v2/namespaces/{tenant}/{namespace}/schemaValidationEnforced").Methods(http.MethodPost).
-		Handler(AuthVerifyTenantJWT(http.HandlerFunc(NamespaceProxyHandler)))
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(NamespacePolicyProxyHandler)))
 
 	router.PathPrefix("/admin/v2/namespaces/{tenant}/{namespace}/permissions/{role}").Methods(http.MethodPost, http.MethodDelete).
 		Handler(SuperRoleRequired(http.HandlerFunc(DirectProxyHandler)))
