@@ -235,7 +235,7 @@ func FunctionTopicWatchDog() {
 	}()
 }
 
-// GetFunctionLog gets the logs from the funcion worker process
+// GetFunctionLog gets the logs from the function worker process
 // Since the function may get reassigned after restart, we will establish the connection every time the log request is being made.
 func GetFunctionLog(functionName string, rd FunctionLogRequest) (FunctionLogResponse, error) {
 	// var funcWorker string

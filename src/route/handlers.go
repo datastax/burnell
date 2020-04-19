@@ -165,16 +165,45 @@ func CachedProxyGETHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(body)
 }
 
-// VerifyTenantProxyHandler verifies subject before sending to the proxy URL
-func VerifyTenantProxyHandler(w http.ResponseWriter, r *http.Request) {
+// NamespaceProxyHandler - authorizes namespace proxy operation based on tenant plan type
+func NamespaceProxyHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	if tenantName, ok := vars["tenant"]; ok {
-		if VerifySubject(tenantName, r.Header.Get(injectedSubs)) {
+	if tenant, ok := vars["tenant"]; ok {
+		if policy.TenantManager.IsFreeStarterPlan(tenant) {
 			DirectProxyHandler(w, r)
 		}
 	}
-	w.WriteHeader(http.StatusForbidden)
-	return
+	w.WriteHeader(http.StatusUnauthorized)
+}
+
+// NamespaceLimitEnforceProxyHandler enforces namespace limit
+func NamespaceLimitEnforceProxyHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet {
+		CachedProxyGETHandler(w, r)
+		return
+	}
+
+	subject := r.Header.Get("injectedSubs")
+	if subject == "" {
+		http.Error(w, "missing subject", http.StatusUnauthorized)
+		return
+	}
+	_, role := ExtractTenant(subject)
+	if util.StrContains(util.SuperRoles, role) {
+		DirectProxyHandler(w, r)
+		return
+	}
+	vars := mux.Vars(r)
+	if tenant, ok := vars["tenant"]; ok {
+		if ok, err := policy.TenantManager.EvaluateNamespaceLimit(tenant); err != nil {
+			http.Error(w, err.Error(), http.StatusUnauthorized)
+		} else if ok {
+			DirectProxyHandler(w, r)
+		} else {
+			http.Error(w, "over the namespace limit", http.StatusForbidden)
+		}
+	}
+	w.WriteHeader(http.StatusUnauthorized)
 }
 
 // FunctionLogsHandler responds with the function logs

@@ -280,14 +280,27 @@ func (s *TenantPolicyHandler) EvaluateNamespaceLimit(tenant string) (bool, error
 	t, ok := s.tenants[tenant]
 	s.tenantsLock.RUnlock()
 	if !ok {
-		return false, fmt.Errorf("not found")
+		return false, fmt.Errorf("tenant %s not found in plan policy database", tenant)
 	}
 
 	namespaces, err := AdminAPIGETRespStringArray("namespaces/" + tenant)
 	if err != nil {
+		s.logger.Errorf("EvaluateNamespaceLimit GET rest error: %v", err)
 		return false, err
 	}
 	return t.Policy.NumOfNamespaces >= (len(namespaces) + 1), nil
+}
+
+// IsFreeStarterPlan checks the tenant plan is either free or starter plan
+func (s *TenantPolicyHandler) IsFreeStarterPlan(tenant string) bool {
+	s.tenantsLock.RLock()
+	t, ok := s.tenants[tenant]
+	s.tenantsLock.RUnlock()
+	if !ok {
+		return true
+	}
+
+	return t.PlanType == FreeTier || t.PlanType == StarterTier || t.PlanType == ""
 }
 
 // AdminAPIGETRespStringArray is a template tenant call that returns an array of string
