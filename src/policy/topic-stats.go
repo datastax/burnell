@@ -1,4 +1,4 @@
-package route
+package policy
 
 import (
 	"encoding/json"
@@ -15,10 +15,20 @@ import (
 
 // topicStats is the master cache for topics
 // the first key is tenant, the second key is topic full name
-var topicStats map[string]map[string]interface{}
+var topicStats = make(map[string]map[string]interface{})
 var topicStatsLock = sync.RWMutex{}
 
 var statsLog = log.WithFields(log.Fields{"app": "topic stats cache"})
+
+// CountTopics counts the number of topics under a tenant, returns -1 if the tenant does not exist
+func CountTopics(tenant string) int {
+	topicStatsLock.RLock()
+	defer topicStatsLock.RUnlock()
+	if topics, ok := topicStats[tenant]; ok {
+		return len(topics)
+	}
+	return -1
+}
 
 func brokersStatsQuery() {
 	requestBrokersURL := util.SingleJoiningSlash(util.Config.ProxyURL, "brokers/"+util.Config.ClusterName)
@@ -147,8 +157,8 @@ func CacheTopicStatsWorker() {
 	}()
 }
 
-//
-func paginateTopicStats(tenant string, offset, pageSize int) (int, int, map[string]interface{}) {
+// PaginateTopicStats paginate topic statistics returns based on offset and page size limit
+func PaginateTopicStats(tenant string, offset, pageSize int) (int, int, map[string]interface{}) {
 	topicStatsLock.RLock()
 	topics, ok := topicStats[tenant]
 	topicStatsLock.RUnlock()

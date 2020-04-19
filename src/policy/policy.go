@@ -2,16 +2,11 @@ package policy
 
 import (
 	"log"
-	"net/http"
 	"strings"
 	"time"
 
 	"github.com/kafkaesque-io/burnell/src/util"
-	"github.com/patrickmn/go-cache"
 )
-
-// TenantPolicyMap has tenant name as key, tenant policy as value
-var TenantPolicyMap = cache.New(15*time.Minute, 3*time.Hour)
 
 // TenantStatus can be used for tenant status
 type TenantStatus int
@@ -172,21 +167,6 @@ func getPlanPolicy(plan string) *PlanPolicy {
 	}
 }
 
-// UpdateCache updates the tenant policy map
-func UpdateCache(tenant string, plan PlanPolicy) {
-	TenantPolicyMap.Add(tenant, plan, cache.DefaultExpiration)
-}
-
-// EvalNamespaceAdminAPI evaluate tenant's namespace administration permission
-func EvalNamespaceAdminAPI(r *http.Request, subject string) bool {
-	return util.StrContains(util.SuperRoles, subject) || r.Method == http.MethodGet
-}
-
-// EvalTopicAdminAPI evaluate tenant's topic administration permission
-func EvalTopicAdminAPI(r *http.Request, subject string) bool {
-	return util.StrContains(util.SuperRoles, subject) || r.Method == http.MethodGet
-}
-
 // TenantManager is the global objects to manage the Tenant REST API
 var TenantManager TenantPolicyHandler
 
@@ -195,6 +175,7 @@ func Initialize() {
 	if err := TenantManager.Setup(); err != nil {
 		log.Fatal(err)
 	}
+	CacheTopicStatsWorker()
 }
 
 // IsFeatureSupported checks if the feature is supported

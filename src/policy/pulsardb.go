@@ -291,6 +291,22 @@ func (s *TenantPolicyHandler) EvaluateNamespaceLimit(tenant string) (bool, error
 	return t.Policy.NumOfNamespaces >= (len(namespaces) + 1), nil
 }
 
+// EvaluateTopicLimit evaluates the requested topic addition would over the limit
+func (s *TenantPolicyHandler) EvaluateTopicLimit(tenant string) (bool, error) {
+	s.tenantsLock.RLock()
+	t, ok := s.tenants[tenant]
+	s.tenantsLock.RUnlock()
+	if !ok {
+		return false, fmt.Errorf("tenant %s not found in plan policy database", tenant)
+	}
+
+	counts := CountTopics(tenant)
+	if counts < 0 {
+		return false, fmt.Errorf("unable to find tenant %s in the database", tenant)
+	}
+	return counts > t.Policy.NumOfTopics, nil
+}
+
 // IsFreeStarterPlan checks the tenant plan is either free or starter plan
 func (s *TenantPolicyHandler) IsFreeStarterPlan(tenant string) bool {
 	s.tenantsLock.RLock()

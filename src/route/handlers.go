@@ -48,8 +48,8 @@ type AdminProxyHandler struct {
 // Init initializes database
 func Init() {
 	InitCache()
-	CacheTopicStatsWorker()
-	topicStats = make(map[string]map[string]interface{})
+	// CacheTopicStatsWorker()
+	// topicStats = make(map[string]map[string]interface{})
 }
 
 // TokenSubjectHandler issues new token
@@ -96,17 +96,6 @@ func DirectProxyHandler(w http.ResponseWriter, r *http.Request) {
 
 	proxy.ServeHTTP(w, r)
 
-}
-
-// VerifyTenantTopicCachedProxyHandler verifies subject before sending to the proxy URL
-func VerifyTenantTopicCachedProxyHandler(w http.ResponseWriter, r *http.Request) {
-	if _, sub, ok := VerifyTenant(r); ok {
-		if policy.EvalNamespaceAdminAPI(r, sub) {
-			CachedProxyHandler(w, r)
-		}
-	}
-	w.WriteHeader(http.StatusForbidden)
-	return
 }
 
 // CachedProxyHandler is
@@ -176,8 +165,17 @@ func NamespaceProxyHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusUnauthorized)
 }
 
+// TopicProxyHandler - authorizes topic proxy operation based on tenant plan type
+func TopicProxyHandler(w http.ResponseWriter, r *http.Request) {
+	limitEnforceProxyHandler(w, r, policy.TenantManager.EvaluateTopicLimit)
+}
+
 // NamespaceLimitEnforceProxyHandler enforces namespace limit
 func NamespaceLimitEnforceProxyHandler(w http.ResponseWriter, r *http.Request) {
+	limitEnforceProxyHandler(w, r, policy.TenantManager.EvaluateNamespaceLimit)
+}
+
+func limitEnforceProxyHandler(w http.ResponseWriter, r *http.Request, eval func(tenant string) (bool, error)) {
 	if r.Method == http.MethodGet {
 		CachedProxyGETHandler(w, r)
 		return
@@ -195,7 +193,7 @@ func NamespaceLimitEnforceProxyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	vars := mux.Vars(r)
 	if tenant, ok := vars["tenant"]; ok {
-		if ok, err := policy.TenantManager.EvaluateNamespaceLimit(tenant); err != nil {
+		if ok, err := eval(tenant); err != nil {
 			http.Error(w, err.Error(), http.StatusUnauthorized)
 		} else if ok {
 			DirectProxyHandler(w, r)
@@ -212,7 +210,7 @@ func FunctionLogsHandler(w http.ResponseWriter, r *http.Request) {
 	tenant, ok := vars["tenant"]
 	namespace, ok2 := vars["namespace"]
 	funcName, ok3 := vars["function"]
-	// fmt.Printf("%s, %s %s\n", tenant, namespace, funcName)
+	log.WithField("app", "FunctionLogHandler").Debugf("funcation path %s, %s, %s", tenant, namespace, funcName)
 	if !(ok && ok2 && ok3) {
 		w.WriteHeader(http.StatusUnprocessableEntity)
 		return
@@ -224,7 +222,7 @@ func FunctionLogsHandler(w http.ResponseWriter, r *http.Request) {
 	reqObj.BackwardPosition = int64(queryParamInt(params, "backwardpos", 0))
 	reqObj.ForwardPosition = int64(queryParamInt(params, "forwardpos", 0))
 	reqObj.Bytes = int64(queryParamInt(params, "bytes", 0))
-	log.Infof("function log query params %v", reqObj)
+	log.WithField("app", "FunctionLogHandler").Infof("function log query params %v", reqObj)
 	if reqObj.BackwardPosition > 0 && reqObj.ForwardPosition > 0 {
 		http.Error(w, "backwardpos and forwardpos cannot be specified at the same time", http.StatusBadRequest)
 	}
@@ -290,7 +288,7 @@ func TenantTopicStatsHandler(w http.ResponseWriter, r *http.Request) {
 	pageSize := queryParamInt(params, "limit", 50)
 	log.Debugf("offset %d limit %d", offset, pageSize)
 
-	totalSize, newOffset, topics := paginateTopicStats(tenant, offset, pageSize)
+	totalSize, newOffset, topics := policy.PaginateTopicStats(tenant, offset, pageSize)
 	if totalSize > 0 {
 		data, err := json.Marshal(TopicStatsResponse{
 			Tenant:    tenant,

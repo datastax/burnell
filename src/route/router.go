@@ -157,12 +157,13 @@ func NewRouter() *mux.Router {
 	// persistent topic
 	//
 	router.PathPrefix("/admin/v2/persistent/{tenant}/{namespace}").Methods(http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete).
-		Handler(AuthVerifyTenantJWT(http.HandlerFunc(CachedProxyHandler)))
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(TopicProxyHandler)))
+
 	// /admin/v2/persistent/{tenant}/{namespace}/partitioned
 
 	// non-persistent topic
 	router.PathPrefix("/admin/v2/non-persistent/{tenant}/{namespace}").Methods(http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete).
-		Handler(AuthVerifyTenantJWT(http.HandlerFunc(CachedProxyHandler)))
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(TopicProxyHandler)))
 
 	//
 	// /resource-quotas
