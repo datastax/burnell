@@ -117,10 +117,11 @@ func CachedProxyGETHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	requestRoute := strings.TrimPrefix(r.URL.RequestURI(), util.AssignString(util.Config.AdminRestPrefix, "/admin/v2"))
-	log.Infof(" proxy %s %v request route is %s\n", r.URL.RequestURI(), util.ProxyURL, requestRoute)
+	requestURL := util.SingleJoiningSlash(util.Config.ProxyURL, requestRoute)
+	log.Infof(" proxy %s %v request route is %s\n\tdestination url is %s", r.URL.RequestURI(), util.ProxyURL, requestRoute, requestURL)
 
 	// Update the headers to allow for SSL redirection
-	newRequest, err := http.NewRequest(http.MethodGet, util.Config.ProxyURL+requestRoute, nil)
+	newRequest, err := http.NewRequest(http.MethodGet, requestURL, nil)
 	if err != nil {
 		util.ResponseErrorJSON(errors.New("failed to set proxy request"), w, http.StatusInternalServerError)
 		return

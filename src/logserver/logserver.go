@@ -125,7 +125,7 @@ func (s *server) Read(ctx context.Context, in *pb.ReadRequest) (*pb.LogLines, er
 
 func main() {
 	port := util.AssignString(util.GetConfig().LogServerPort, os.Getenv("LogServerPort"), pb.DefaultLogServerPort)
-	fmt.Printf("starting log server on port %s\n", port)
+	fmt.Printf("starting log server on port %s, log path prefix %s\n", port, pb.FilePath)
 	listener, err := net.Listen("tcp", port)
 	if err != nil {
 		log.Fatalln(err)

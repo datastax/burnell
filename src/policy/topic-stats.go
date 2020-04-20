@@ -139,7 +139,6 @@ func brokerStatsQuery(urlString string) map[string]map[string]interface{} {
 		}
 		stats[tenant] = topics
 	}
-	statsLog.Infof("cache size %d\n", len(stats))
 	return stats
 }
 
