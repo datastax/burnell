@@ -124,3 +124,10 @@ docker build -t burnell .
 ```
 
 docker tag kafkaesqueio/burnell:0.1.5
+
+### Docker for logcollector
+
+```
+docker build -t burnell-logcollector -f ./dockerfiles/logserver/Dockerfile .
+docker run --rm -it -p 4040:4040 -e "LogServerPort=:4042" --name burnell-logcollector burnell-logcollector:latest
+```

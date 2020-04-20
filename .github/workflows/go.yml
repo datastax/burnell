@@ -80,7 +80,11 @@ jobs:
           fetch-depth: 1
           path: go/src/github.com/kafkaesque-io/burnell
 
-      - name: Build Docker Image
+      - name: Build Burnell Docker Image
         run: |
           pwd
           sudo docker build -t burnell .
+      - name: Build Burnell Logcollector Docker Image
+        run: |
+          pwd
+          sudo docker build -t burnell-logcollector -f ./dockerfiles/logserver/Dockerfile .
