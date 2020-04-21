@@ -117,7 +117,7 @@ func CachedProxyGETHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	requestRoute := strings.TrimPrefix(r.URL.RequestURI(), util.AssignString(util.Config.AdminRestPrefix, "/admin/v2"))
-	requestURL := util.SingleJoiningSlash(util.Config.ProxyURL, requestRoute)
+	requestURL := util.SingleJoinSlash(util.Config.ProxyURL, requestRoute)
 	log.Infof(" proxy %s %v request route is %s\n\tdestination url is %s", r.URL.RequestURI(), util.ProxyURL, requestRoute, requestURL)
 
 	// Update the headers to allow for SSL redirection
@@ -164,6 +164,25 @@ func NamespacePolicyProxyHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	w.WriteHeader(http.StatusUnauthorized)
+}
+
+// BrokerAggregatorHandler aggregates all broker-stats and reply
+func BrokerAggregatorHandler(w http.ResponseWriter, r *http.Request) {
+	// RequestURI() should have /admin/v2 to be passed as broker's URL route
+	brokerStats, err := policy.AggregateBrokersStats(r.URL.RequestURI())
+	if err != nil {
+		http.Error(w, "broker stats error "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	byte, err := json.Marshal(brokerStats)
+	if err != nil {
+		http.Error(w, "marshalling broker stats error "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Write(byte)
+	w.WriteHeader(http.StatusOK)
+	return
 }
 
 // TopicProxyHandler enforces the number of topic based on the plan type
@@ -429,6 +448,6 @@ func updateProxyRequest(r *http.Request) {
 	r.Header.Set("X-Forwarded-Host", r.Header.Get("Host"))
 	r.Header.Set("X-Proxy", "burnell")
 	r.Host = util.ProxyURL.Host
-	r.RequestURI = util.SingleJoiningSlash(util.ProxyURL.RequestURI(), requestRoute)
+	r.RequestURI = util.SingleJoinSlash(util.ProxyURL.RequestURI(), requestRoute)
 	r.Header["Authorization"] = []string{"Bearer " + util.Config.PulsarToken}
 }

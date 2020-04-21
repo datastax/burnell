@@ -42,7 +42,7 @@ func NewRouter() *mux.Router {
 
 	// /broker-stats
 	router.PathPrefix("/admin/v2/broker-stats").Methods(http.MethodGet).
-		Handler(SuperRoleRequired(http.HandlerFunc(DirectProxyHandler)))
+		Handler(SuperRoleRequired(http.HandlerFunc(BrokerAggregatorHandler)))
 	// Exception is broker-resource-availability/{tenant}/{namespace}
 	// since "org.apache.pulsar.broker.loadbalance.impl.ModularLoadManagerWrapper does not support this operation"
 	// we would not support this for now

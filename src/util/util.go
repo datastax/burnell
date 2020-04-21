@@ -100,8 +100,8 @@ func GetEnvInt(env string, defaultNum int) int {
 	return defaultNum
 }
 
-// SingleJoiningSlash joins two parts of url path with no double slash
-func SingleJoiningSlash(a, b string) string {
+// SingleJoinSlash joins two parts of url path with no double slash
+func SingleJoinSlash(a, b string) string {
 	aslash := strings.HasSuffix(a, "/")
 	bslash := strings.HasPrefix(b, "/")
 	switch {

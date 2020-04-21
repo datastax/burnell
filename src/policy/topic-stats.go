@@ -2,6 +2,7 @@ package policy
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"sort"
@@ -18,7 +19,13 @@ import (
 var topicStats = make(map[string]map[string]interface{})
 var topicStatsLock = sync.RWMutex{}
 
-var statsLog = log.WithFields(log.Fields{"app": "topic stats cache"})
+var statsLog = log.WithFields(log.Fields{"app": "broker stats cache"})
+
+// BrokerStats is per broker statistics
+type BrokerStats struct {
+	BrokerName string      `json:"brokerName"`
+	Data       interface{} `json:"data"`
+}
 
 // CountTopics counts the number of topics under a tenant, returns -1 if the tenant does not exist
 func CountTopics(tenant string) int {
@@ -30,40 +37,43 @@ func CountTopics(tenant string) int {
 	return -1
 }
 
-func brokersStatsQuery() {
-	requestBrokersURL := util.SingleJoiningSlash(util.Config.ProxyURL, "brokers/"+util.Config.ClusterName)
-	statsLog.Infof(requestBrokersURL)
+// GetBrokers gets a list of broker IP or fqdn
+func GetBrokers() []string {
+	requestBrokersURL := util.SingleJoinSlash(util.Config.ProxyURL, "brokers/"+util.Config.ClusterName)
 	// Update the headers to allow for SSL redirection
 	newRequest, err := http.NewRequest(http.MethodGet, requestBrokersURL, nil)
 	if err != nil {
 		statsLog.Errorf("make http request brokers %s error %v", requestBrokersURL, err)
-		return
+		return []string{}
 	}
 	newRequest.Header.Add("Authorization", "Bearer "+util.Config.PulsarToken)
 	client := &http.Client{}
 	response, err := client.Do(newRequest)
 	if err != nil {
 		statsLog.Errorf("GET brokers %s error %v", requestBrokersURL, err)
-		return
+		return []string{}
 	}
 
 	body, err := ioutil.ReadAll(response.Body)
 	defer response.Body.Close()
 	if err != nil {
 		statsLog.Errorf("GET brokers %s read response body error %v", requestBrokersURL, err)
-		return
+		return []string{}
 	}
 	var brokers []string
 	if err = json.Unmarshal(body, &brokers); err != nil {
 		statsLog.Errorf("GET brokers %s unmarshal response body error %v", requestBrokersURL, err)
-		return
+		return []string{}
 	}
+	return sort.StringSlice(brokers)
+}
 
+func brokersStatsTopicQuery() {
+	brokers := GetBrokers()
 	localStats := make(map[string]map[string]interface{})
-	statsLog.Infof("a list of brokers - %v", brokers)
 	// brokers = []string{util.Config.ProxyURL, util.Config.ProxyURL, util.Config.ProxyURL}
 	for _, v := range brokers {
-		stats := brokerStatsQuery(v)
+		stats := brokerStatsTopicsQuery(v)
 
 		// merge stats with the master cache
 		for tenant, topics := range stats {
@@ -82,14 +92,14 @@ func brokersStatsQuery() {
 	topicStats = localStats
 	topicStatsLock.Unlock()
 
-	statsLog.Infof("total size %d, %d\n", len(localStats), len(topicStats))
+	statsLog.Infof("total size %d, local topic stats size %d, broker list%v\n", len(localStats), len(topicStats), brokers)
 }
 
-func brokerStatsQuery(urlString string) map[string]map[string]interface{} {
+func brokerStatsTopicsQuery(urlString string) map[string]map[string]interface{} {
 	if !strings.HasPrefix(urlString, "http") {
 		urlString = "http://" + urlString
 	}
-	topicStatsURL := util.SingleJoiningSlash(urlString, "admin/v2/broker-stats/topics")
+	topicStatsURL := util.SingleJoinSlash(urlString, "admin/v2/broker-stats/topics")
 	statsLog.Debugf(" proxy request route is %s\n", topicStatsURL)
 
 	stats := make(map[string]map[string]interface{})
@@ -146,11 +156,11 @@ func brokerStatsQuery(urlString string) map[string]map[string]interface{} {
 func CacheTopicStatsWorker() {
 	interval := time.Duration(util.GetEnvInt("StatsPullIntervalSecond", 5)) * time.Second
 	go func() {
-		brokersStatsQuery()
+		brokersStatsTopicQuery()
 		for {
 			select {
 			case <-time.Tick(interval):
-				brokersStatsQuery()
+				brokersStatsTopicQuery()
 			}
 		}
 	}()
@@ -188,4 +198,80 @@ func PaginateTopicStats(tenant string, offset, pageSize int) (int, int, map[stri
 		newMap[v] = topics[v]
 	}
 	return totalSize, newOffset, newMap
+}
+
+// AggregateBrokersStats aggregates all brokers' statistics
+func AggregateBrokersStats(subRoute string) ([]BrokerStats, error) {
+	brokers := GetBrokers()
+	// brokers := []string{util.Config.ProxyURL, util.Config.ProxyURL, util.Config.ProxyURL}
+	statsLog.Infof("broker %v", brokers)
+
+	size := len(brokers)
+	var brokerStats []BrokerStats
+	resultChan := make(chan BrokerStats, size)
+	BrokerTimeoutSecond := time.Duration(size*2) * time.Second
+
+	for _, broker := range brokers {
+		go brokerStatsQuery(broker, subRoute, resultChan)
+	}
+
+	for {
+		select {
+		case result := <-resultChan:
+			brokerStats = append(brokerStats, result)
+			if size--; size == 0 {
+				return brokerStats, nil
+			}
+		case <-time.Tick(BrokerTimeoutSecond):
+			statsLog.Errorf("timeout on brokers stats response")
+			return brokerStats, fmt.Errorf("broker stats time out by server")
+		}
+	}
+
+}
+
+func brokerStatsQuery(urlString, subRoute string, respChan chan BrokerStats) {
+	brokerStats := BrokerStats{
+		BrokerName: urlString,
+	}
+	if !strings.HasPrefix(urlString, "http") {
+		urlString = "http://" + urlString
+	}
+	brokerStatsURL := util.SingleJoinSlash(urlString, subRoute)
+	statsLog.Infof(" proxy request route is %s\n", brokerStatsURL)
+
+	// Update the headers to allow for SSL redirection
+	newRequest, err := http.NewRequest(http.MethodGet, brokerStatsURL, nil)
+	if err != nil {
+		statsLog.Errorf("make http request %s error %v", brokerStatsURL, err)
+		respChan <- brokerStats
+		return
+	}
+	newRequest.Header.Add("user-agent", "burnell")
+	newRequest.Header.Add("Authorization", "Bearer "+util.Config.PulsarToken)
+	client := &http.Client{}
+	response, err := client.Do(newRequest)
+	if err != nil {
+		statsLog.Errorf("make http request %s error %v", brokerStatsURL, err)
+		respChan <- brokerStats
+		return
+	}
+
+	body, err := ioutil.ReadAll(response.Body)
+	defer response.Body.Close()
+	if err != nil {
+		statsLog.Errorf("GET broker topic stats request %s error %v", brokerStatsURL, err)
+		respChan <- brokerStats
+		return
+	}
+
+	// tenant's namespace/bundle hash/persistent/topicFullName
+	var result interface{}
+	if err = json.Unmarshal(body, &result); err != nil {
+		statsLog.Errorf("GET broker topic stats request %s unmarshal error %v", brokerStatsURL, err)
+		respChan <- brokerStats
+		return
+	}
+	brokerStats.Data = result
+	respChan <- brokerStats
 }

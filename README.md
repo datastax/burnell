@@ -117,6 +117,9 @@ $ curl -X DELETE -H "Authorization: Bearer $MY_TOKEN" "http://localhost:8964/k/t
 {"name":"ming-luo","tenantStatus":1,"org":"","users":"","planType":"free","updatedAt":"2020-04-17T13:39:09.315634076-04:00","policy":{"name":"free","numOfTopics":5,"numOfNamespaces":1,"messageHourRetention":48,"messageRetention":172800000000000,"numofProducers":3,"numOfConsumers":5,"functions":1,"brokerMetrics":2},"audit":"initial creation,"}
 ```
 
+### Pulsar Admin Rest API Proxy
+`/admin/v2/broker-stats` response aggregates all brokers' statistics.
+
 ### Docker
 
 ```
@@ -129,5 +132,5 @@ docker tag kafkaesqueio/burnell:0.1.5
 
 ```
 docker build -t burnell-logcollector -f ./dockerfiles/logserver/Dockerfile .
-docker run --rm -it -p 4040:4040 -e "LogServerPort=:4042" --name burnell-logcollector burnell-logcollector:latest
+docker run --rm -it -p 4042:4042 -e "LogServerPort=:4042" --name burnell-logcollector burnell-logcollector:latest
 ```
