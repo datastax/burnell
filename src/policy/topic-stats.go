@@ -23,8 +23,15 @@ var statsLog = log.WithFields(log.Fields{"app": "broker stats cache"})
 
 // BrokerStats is per broker statistics
 type BrokerStats struct {
-	BrokerName string      `json:"brokerName"`
-	Data       interface{} `json:"data"`
+	Broker string      `json:"broker"`
+	Data   interface{} `json:"data"`
+}
+
+// BrokersStats is the json response object for REST API
+type BrokersStats struct {
+	Total  int           `json:"total"`
+	Offset int           `json:"offset"`
+	Data   []BrokerStats `json:"data"`
 }
 
 // CountTopics counts the number of topics under a tenant, returns -1 if the tenant does not exist
@@ -201,12 +208,30 @@ func PaginateTopicStats(tenant string, offset, pageSize int) (int, int, map[stri
 }
 
 // AggregateBrokersStats aggregates all brokers' statistics
-func AggregateBrokersStats(subRoute string) ([]BrokerStats, error) {
+func AggregateBrokersStats(subRoute string, offset, limit int) (BrokersStats, error) {
 	brokers := GetBrokers()
 	// brokers := []string{util.Config.ProxyURL, util.Config.ProxyURL, util.Config.ProxyURL}
 	statsLog.Infof("broker %v", brokers)
 
-	size := len(brokers)
+	total := len(brokers)
+	newOffset := offset + limit
+	size := total
+	if offset >= total || offset < 0 {
+		return BrokersStats{}, fmt.Errorf("offset %d cannot reconcile with the total number of brokers %d", offset, total)
+	}
+	if limit > 0 {
+		if newOffset > size {
+			newOffset = size
+		}
+		brokers = brokers[offset:newOffset]
+	}
+	size = len(brokers) //calculate the new size
+
+	resp := BrokersStats{
+		Total:  total,
+		Offset: newOffset,
+	}
+
 	var brokerStats []BrokerStats
 	resultChan := make(chan BrokerStats, size)
 	BrokerTimeoutSecond := time.Duration(size*2) * time.Second
@@ -220,11 +245,13 @@ func AggregateBrokersStats(subRoute string) ([]BrokerStats, error) {
 		case result := <-resultChan:
 			brokerStats = append(brokerStats, result)
 			if size--; size == 0 {
-				return brokerStats, nil
+				resp.Data = brokerStats
+				return resp, nil
 			}
 		case <-time.Tick(BrokerTimeoutSecond):
 			statsLog.Errorf("timeout on brokers stats response")
-			return brokerStats, fmt.Errorf("broker stats time out by server")
+			resp.Data = brokerStats
+			return resp, fmt.Errorf("broker stats time out by server")
 		}
 	}
 
@@ -232,7 +259,7 @@ func AggregateBrokersStats(subRoute string) ([]BrokerStats, error) {
 
 func brokerStatsQuery(urlString, subRoute string, respChan chan BrokerStats) {
 	brokerStats := BrokerStats{
-		BrokerName: urlString,
+		Broker: urlString,
 	}
 	if !strings.HasPrefix(urlString, "http") {
 		urlString = "http://" + urlString

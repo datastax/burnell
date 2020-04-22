@@ -169,7 +169,13 @@ func NamespacePolicyProxyHandler(w http.ResponseWriter, r *http.Request) {
 // BrokerAggregatorHandler aggregates all broker-stats and reply
 func BrokerAggregatorHandler(w http.ResponseWriter, r *http.Request) {
 	// RequestURI() should have /admin/v2 to be passed as broker's URL route
-	brokerStats, err := policy.AggregateBrokersStats(r.URL.RequestURI())
+	u, _ := url.Parse(r.URL.String())
+	params := u.Query()
+	offset := queryParamInt(params, "offset", 0)
+	limit := queryParamInt(params, "limit", 1) // the limit is per broker
+	log.Infof("offset %d limit %d, request subroute %s", offset, limit, r.URL.RequestURI())
+
+	brokerStats, err := policy.AggregateBrokersStats(r.URL.RequestURI(), offset, limit)
 	if err != nil {
 		http.Error(w, "broker stats error "+err.Error(), http.StatusInternalServerError)
 		return

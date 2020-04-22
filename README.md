@@ -118,7 +118,27 @@ $ curl -X DELETE -H "Authorization: Bearer $MY_TOKEN" "http://localhost:8964/k/t
 ```
 
 ### Pulsar Admin Rest API Proxy
-`/admin/v2/broker-stats` response aggregates all brokers' statistics.
+
+#### Pulsar Admin REST API
+[Pulsar Admin REST API](https://pulsar.apache.org/admin-rest-api/) is mapped with the exact same routes. The exceptions are `\broker-stats`.
+
+`/admin/v2/broker-stats` response aggregates all brokers' statistics. It returns brokers in the order of broker name, therefore it individual broker json object similar to pagination.
+
+```
+-X GET
+-H "Authorization: Bearer $SUPERROLE_TOKEN"
+"https://<pulsar proxy server fqdn>:8964/admin/v2/broker-stats/metrics?limit=2&offset=0"
+```
+
+`limit=0` will return all brokers in a single call. 
+
+Without limit and offset query parameters, it will return the very first broker in the order broker's alphanumeric order.
+
+The new offset and total will be returned in the repsonse body.
+
+```
+{"total":1,"offset":1,"data":[{"broker":"10.244.1.221:8080","data":[{"...
+```
 
 ### Docker
 
