@@ -3,6 +3,7 @@ package logclient
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -28,6 +29,8 @@ type FunctionLogResponse struct {
 var ErrNotFoundFunction = fmt.Errorf("function not found")
 
 var logger = log.WithFields(log.Fields{"app": "pulsar-function-listener"})
+
+var functionWorkerDomain = os.Getenv("FunctionWorkerDomain")
 
 // FunctionLogRequest is HTTP resquest object
 type FunctionLogRequest struct {
@@ -244,9 +247,10 @@ func GetFunctionLog(functionName string, rd FunctionLogRequest) (FunctionLogResp
 		return FunctionLogResponse{}, ErrNotFoundFunction
 	}
 	// Set up a connection to the server.
-	address := function.FunctionWorkerID + util.AssignString(util.GetConfig().LogServerPort, logstream.DefaultLogServerPort)
+	fqdn := function.FunctionWorkerID + functionWorkerDomain
+	address := fqdn + util.AssignString(util.GetConfig().LogServerPort, logstream.DefaultLogServerPort)
 	// address = logstream.DefaultLogServerPort
-	logger.Infof("found function %s", address)
+	logger.Infof("connect to function worker address %s", address)
 	conn, err := grpc.Dial(address, grpc.WithInsecure(), grpc.WithBlock(), grpc.WithTimeout(2*time.Second))
 	if err != nil {
 		logger.Errorf("grpc.Dial to log server error %v", err)
