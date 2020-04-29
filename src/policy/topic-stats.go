@@ -46,7 +46,7 @@ func CountTopics(tenant string) int {
 
 // GetBrokers gets a list of broker IP or fqdn
 func GetBrokers() []string {
-	requestBrokersURL := util.SingleJoinSlash(util.Config.ProxyURL, "brokers/"+util.Config.ClusterName)
+	requestBrokersURL := util.SingleJoinSlash(util.Config.ProxyURL, "admin/v2/brokers/"+util.Config.ClusterName)
 	// Update the headers to allow for SSL redirection
 	newRequest, err := http.NewRequest(http.MethodGet, requestBrokersURL, nil)
 	if err != nil {

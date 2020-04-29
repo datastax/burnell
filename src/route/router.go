@@ -184,10 +184,37 @@ func NewRouter() *mux.Router {
 		Handler(SuperRoleRequired(http.HandlerFunc(CachedProxyHandler)))
 
 	//
-	// /functions
+	// /functions including v2 for backward compatibility
 	//
+	router.PathPrefix("/admin/v3/functions/{tenant}").Methods(http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete).
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(DirectProxyHandler)))
+
 	router.PathPrefix("/admin/v2/functions/{tenant}").Methods(http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete).
-		Handler(AuthVerifyTenantJWT(http.HandlerFunc(CachedProxyHandler)))
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(DirectProxyHandler)))
+
+	//
+	// /sources
+	//
+	router.PathPrefix("/admin/v3/sources/builtinsources").Methods(http.MethodGet).
+		Handler(AuthVerifyJWT(http.HandlerFunc(CachedProxyHandler)))
+
+	router.PathPrefix("/admin/v3/sources/reloadBuiltInSources").Methods(http.MethodPost).
+		Handler(SuperRoleRequired(http.HandlerFunc(DirectProxyHandler)))
+
+	router.PathPrefix("/admin/v3/sources/{tenant}").Methods(http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete).
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(DirectProxyHandler)))
+
+	//
+	// /sinks
+	//
+	router.PathPrefix("/admin/v3/sinks/builtinsinks").Methods(http.MethodGet).
+		Handler(AuthVerifyJWT(http.HandlerFunc(CachedProxyHandler)))
+
+	router.PathPrefix("/admin/v3/sinks/reloadBuiltInSinks").Methods(http.MethodPost).
+		Handler(SuperRoleRequired(http.HandlerFunc(DirectProxyHandler)))
+
+	router.PathPrefix("/admin/v3/sinks/{tenant}").Methods(http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete).
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(DirectProxyHandler)))
 
 	// TODO rate limit can be added per route basis
 	router.Use(LimitRate)

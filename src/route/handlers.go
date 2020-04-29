@@ -116,9 +116,8 @@ func CachedProxyGETHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	requestRoute := strings.TrimPrefix(r.URL.RequestURI(), util.AssignString(util.Config.AdminRestPrefix, "/admin/v2"))
-	requestURL := util.SingleJoinSlash(util.Config.ProxyURL, requestRoute)
-	log.Infof(" proxy %s %v request route is %s\n\tdestination url is %s", r.URL.RequestURI(), util.ProxyURL, requestRoute, requestURL)
+	requestURL := util.SingleJoinSlash(util.Config.ProxyURL, r.URL.RequestURI())
+	log.Infof("request route %s to proxy %v\n\tdestination url is %s", r.URL.RequestURI(), util.ProxyURL, requestURL)
 
 	// Update the headers to allow for SSL redirection
 	newRequest, err := http.NewRequest(http.MethodGet, requestURL, nil)
@@ -444,16 +443,15 @@ func ExtractTenant(tokenSub string) (string, string) {
 }
 
 func updateProxyRequest(r *http.Request) {
-	requestRoute := strings.TrimPrefix(r.URL.RequestURI(), util.AssignString(util.Config.AdminRestPrefix, "/admin/v2"))
-	log.Debugf("direct proxy %s %v request route is %s\n", r.URL.RequestURI(), util.ProxyURL, requestRoute)
+	log.Debugf("request route %s proxy URL %v", r.URL.RequestURI(), util.ProxyURL)
 
 	// Update the headers to allow for SSL redirection
 	r.URL.Host = util.ProxyURL.Host
 	r.URL.Scheme = util.ProxyURL.Scheme
-	r.URL.Path = requestRoute
+	r.URL.Path = r.URL.RequestURI()
 	r.Header.Set("X-Forwarded-Host", r.Header.Get("Host"))
 	r.Header.Set("X-Proxy", "burnell")
 	r.Host = util.ProxyURL.Host
-	r.RequestURI = util.SingleJoinSlash(util.ProxyURL.RequestURI(), requestRoute)
+	r.RequestURI = r.URL.RequestURI()
 	r.Header["Authorization"] = []string{"Bearer " + util.Config.PulsarToken}
 }
