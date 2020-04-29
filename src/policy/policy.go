@@ -45,6 +45,8 @@ const (
 	FeatureAllDisabled = "all-disabled"
 	// BrokerMetrics is the feature to expose broker prometheus metrics
 	BrokerMetrics = "broker-metrics"
+	// InfiniteMessageRetention is the feature for infinite message retention
+	InfiniteMessageRetention = "infinite-message-retention"
 )
 
 // PlanPolicy is the tenant policy
