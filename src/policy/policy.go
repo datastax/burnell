@@ -180,6 +180,11 @@ func Initialize() {
 	CacheTopicStatsWorker()
 }
 
+// Init is called at bootstrap to build feature codes
+func Init() {
+
+}
+
 // IsFeatureSupported checks if the feature is supported
 func IsFeatureSupported(feature, featureCodes string) bool {
 	return featureCodes == FeatureAllEnabled || util.StrContains(strings.Split(featureCodes, ","), feature)
