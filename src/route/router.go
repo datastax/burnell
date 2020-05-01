@@ -38,7 +38,7 @@ func NewRouter() *mux.Router {
 	//
 	// /bookies/
 	router.PathPrefix("/admin/v2/bookies").Methods(http.MethodGet, http.MethodPost, http.MethodDelete).
-		Handler(SuperRoleRequired(http.HandlerFunc(DirectProxyHandler)))
+		Handler(SuperRoleRequired(http.HandlerFunc(DirectBrokerProxyHandler)))
 
 	// /broker-stats
 	router.PathPrefix("/admin/v2/broker-stats").Methods(http.MethodGet).
@@ -51,7 +51,7 @@ func NewRouter() *mux.Router {
 	// /brokers
 	//
 	router.PathPrefix("/admin/v2/brokers").Methods(http.MethodGet, http.MethodPost, http.MethodDelete).
-		Handler(SuperRoleRequired(http.HandlerFunc(DirectProxyHandler)))
+		Handler(SuperRoleRequired(http.HandlerFunc(DirectBrokerProxyHandler)))
 
 	//
 	// /clusters
@@ -86,49 +86,49 @@ func NewRouter() *mux.Router {
 		Handler(AuthVerifyTenantJWT(http.HandlerFunc(NamespacePolicyProxyHandler)))
 
 	router.PathPrefix("/admin/v2/namespaces/{tenant}/{namespace}/permissions/{role}").Methods(http.MethodPost, http.MethodDelete).
-		Handler(SuperRoleRequired(http.HandlerFunc(DirectProxyHandler)))
+		Handler(SuperRoleRequired(http.HandlerFunc(DirectBrokerProxyHandler)))
 	router.PathPrefix("/admin/v2/namespaces/{tenant}/{namespace}/persistence").Methods(http.MethodPost).
-		Handler(SuperRoleRequired(http.HandlerFunc(DirectProxyHandler)))
+		Handler(SuperRoleRequired(http.HandlerFunc(DirectBrokerProxyHandler)))
 	router.PathPrefix("/admin/v2/namespaces/{tenant}/{namespace}/replication").Methods(http.MethodPost).
-		Handler(SuperRoleRequired(http.HandlerFunc(DirectProxyHandler)))
+		Handler(SuperRoleRequired(http.HandlerFunc(DirectBrokerProxyHandler)))
 	router.PathPrefix("/admin/v2/namespaces/{tenant}/{namespace}/replicatorDispatchRate").Methods(http.MethodPost).
-		Handler(SuperRoleRequired(http.HandlerFunc(DirectProxyHandler)))
+		Handler(SuperRoleRequired(http.HandlerFunc(DirectBrokerProxyHandler)))
 	router.PathPrefix("/admin/v2/namespaces/{tenant}/{namespace}/retention").Methods(http.MethodPost).
-		Handler(SuperRoleRequired(http.HandlerFunc(DirectProxyHandler)))
+		Handler(SuperRoleRequired(http.HandlerFunc(DirectBrokerProxyHandler)))
 	router.PathPrefix("/admin/v2/namespaces/{tenant}/{namespace}/subscribeRate").Methods(http.MethodPost).
-		Handler(SuperRoleRequired(http.HandlerFunc(DirectProxyHandler)))
+		Handler(SuperRoleRequired(http.HandlerFunc(DirectBrokerProxyHandler)))
 	router.PathPrefix("/admin/v2/namespaces/{tenant}/{namespace}/subscriptionAuthMode").Methods(http.MethodPost).
-		Handler(SuperRoleRequired(http.HandlerFunc(DirectProxyHandler)))
+		Handler(SuperRoleRequired(http.HandlerFunc(DirectBrokerProxyHandler)))
 	router.PathPrefix("/admin/v2/namespaces/{tenant}/{namespace}/subscriptionDispatchRate").Methods(http.MethodPost).
-		Handler(SuperRoleRequired(http.HandlerFunc(DirectProxyHandler)))
+		Handler(SuperRoleRequired(http.HandlerFunc(DirectBrokerProxyHandler)))
 	router.PathPrefix("/admin/v2/namespaces/{tenant}/{namespace}/unload").Methods(http.MethodPut).
-		Handler(SuperRoleRequired(http.HandlerFunc(DirectProxyHandler)))
+		Handler(SuperRoleRequired(http.HandlerFunc(DirectBrokerProxyHandler)))
 
 	router.PathPrefix("/admin/v2/namespaces/{tenant}/{namespace}/{bundle}").Methods(http.MethodDelete).
-		Handler(SuperRoleRequired(http.HandlerFunc(DirectProxyHandler)))
+		Handler(SuperRoleRequired(http.HandlerFunc(DirectBrokerProxyHandler)))
 	router.PathPrefix("/admin/v2/namespaces/{tenant}/{namespace}/{bundle}/split").Methods(http.MethodDelete).
-		Handler(SuperRoleRequired(http.HandlerFunc(DirectProxyHandler)))
+		Handler(SuperRoleRequired(http.HandlerFunc(DirectBrokerProxyHandler)))
 	router.PathPrefix("/admin/v2/namespaces/{tenant}/{namespace}/{bundle}/unload").Methods(http.MethodDelete).
-		Handler(SuperRoleRequired(http.HandlerFunc(DirectProxyHandler)))
+		Handler(SuperRoleRequired(http.HandlerFunc(DirectBrokerProxyHandler)))
 	router.PathPrefix("/admin/v2/namespaces/{tenant}/{namespace}/{bundle}/clearBacklog").Methods(http.MethodDelete).
-		Handler(SuperRoleRequired(http.HandlerFunc(DirectProxyHandler)))
+		Handler(SuperRoleRequired(http.HandlerFunc(DirectBrokerProxyHandler)))
 	router.PathPrefix("/admin/v2/namespaces/{tenant}/{namespace}/{bundle}/clearBacklog/{subscription}").Methods(http.MethodDelete).
-		Handler(SuperRoleRequired(http.HandlerFunc(DirectProxyHandler)))
+		Handler(SuperRoleRequired(http.HandlerFunc(DirectBrokerProxyHandler)))
 	router.PathPrefix("/admin/v2/namespaces/{tenant}/{namespace}/{bundle}/unsubscribe/{subscription}").Methods(http.MethodDelete).
-		Handler(SuperRoleRequired(http.HandlerFunc(DirectProxyHandler)))
+		Handler(SuperRoleRequired(http.HandlerFunc(DirectBrokerProxyHandler)))
 
 	router.PathPrefix("/admin/v2/namespaces/{tenant}/{namespace}/autoSubscriptionCreation").Methods(http.MethodDelete, http.MethodPost).
-		Handler(AuthVerifyTenantJWT(http.HandlerFunc(DirectProxyHandler)))
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(DirectBrokerProxyHandler)))
 	router.PathPrefix("/admin/v2/namespaces/{tenant}/{namespace}/autoTopicCreation").Methods(http.MethodDelete, http.MethodPost).
-		Handler(AuthVerifyTenantJWT(http.HandlerFunc(DirectProxyHandler)))
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(DirectBrokerProxyHandler)))
 	router.PathPrefix("/admin/v2/namespaces/{tenant}/{namespace}/backlogQuota").Methods(http.MethodDelete, http.MethodPost).
-		Handler(AuthVerifyTenantJWT(http.HandlerFunc(DirectProxyHandler)))
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(DirectBrokerProxyHandler)))
 	router.PathPrefix("/admin/v2/namespaces/{tenant}/{namespace}/backlogQuotaMap").Methods(http.MethodGet).
 		Handler(AuthVerifyTenantJWT(http.HandlerFunc(CachedProxyHandler)))
 
 	// this includes clearBacklog/{subscription}
 	router.PathPrefix("/admin/v2/namespaces/{tenant}/{namespace}/clearBacklog").Methods(http.MethodPost).
-		Handler(AuthVerifyTenantJWT(http.HandlerFunc(DirectProxyHandler)))
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(DirectBrokerProxyHandler)))
 	router.PathPrefix("/admin/v2/namespaces/{tenant}/{namespace}/antiAffinity").Methods(http.MethodGet, http.MethodPost, http.MethodDelete).
 		Handler(AuthVerifyTenantJWT(http.HandlerFunc(CachedProxyHandler)))
 
@@ -187,34 +187,34 @@ func NewRouter() *mux.Router {
 	// /functions including v2 for backward compatibility
 	//
 	router.PathPrefix("/admin/v3/functions/{tenant}").Methods(http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete).
-		Handler(AuthVerifyTenantJWT(http.HandlerFunc(DirectProxyHandler)))
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(DirectFunctionProxyHandler)))
 
 	router.PathPrefix("/admin/v2/functions/{tenant}").Methods(http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete).
-		Handler(AuthVerifyTenantJWT(http.HandlerFunc(DirectProxyHandler)))
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(DirectFunctionProxyHandler)))
 
 	//
 	// /sources
 	//
 	router.PathPrefix("/admin/v3/sources/builtinsources").Methods(http.MethodGet).
-		Handler(AuthVerifyJWT(http.HandlerFunc(CachedProxyHandler)))
+		Handler(AuthVerifyJWT(http.HandlerFunc(DirectFunctionProxyHandler)))
 
 	router.PathPrefix("/admin/v3/sources/reloadBuiltInSources").Methods(http.MethodPost).
-		Handler(SuperRoleRequired(http.HandlerFunc(DirectProxyHandler)))
+		Handler(SuperRoleRequired(http.HandlerFunc(DirectFunctionProxyHandler)))
 
 	router.PathPrefix("/admin/v3/sources/{tenant}").Methods(http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete).
-		Handler(AuthVerifyTenantJWT(http.HandlerFunc(DirectProxyHandler)))
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(DirectFunctionProxyHandler)))
 
 	//
 	// /sinks
 	//
 	router.PathPrefix("/admin/v3/sinks/builtinsinks").Methods(http.MethodGet).
-		Handler(AuthVerifyJWT(http.HandlerFunc(CachedProxyHandler)))
+		Handler(AuthVerifyJWT(http.HandlerFunc(DirectFunctionProxyHandler)))
 
 	router.PathPrefix("/admin/v3/sinks/reloadBuiltInSinks").Methods(http.MethodPost).
-		Handler(SuperRoleRequired(http.HandlerFunc(DirectProxyHandler)))
+		Handler(SuperRoleRequired(http.HandlerFunc(DirectFunctionProxyHandler)))
 
 	router.PathPrefix("/admin/v3/sinks/{tenant}").Methods(http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete).
-		Handler(AuthVerifyTenantJWT(http.HandlerFunc(DirectProxyHandler)))
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(DirectFunctionProxyHandler)))
 
 	// TODO rate limit can be added per route basis
 	router.Use(LimitRate)

@@ -23,11 +23,12 @@ const DefaultConfigFile = "../config/burnell.yml"
 
 // Configuration - this server's configuration
 type Configuration struct {
-	LogLevel        string `json:"logLevel"`
-	PORT            string `json:"PORT"`
-	ProxyURL        string `json:"ProxyURL"`
-	AdminRestPrefix string `json:"AdminRestPrefix"`
-	ClusterName     string `json:"ClusterName"`
+	LogLevel         string `json:"logLevel"`
+	PORT             string `json:"PORT"`
+	BrokerProxyURL   string `json:"BrokerProxyURL"`
+	FunctionProxyURL string `json:"FunctionProxyURL"`
+	AdminRestPrefix  string `json:"AdminRestPrefix"`
+	ClusterName      string `json:"ClusterName"`
 
 	PulsarPublicKey  string `json:"PulsarPublicKey"`
 	PulsarPrivateKey string `json:"PulsarPrivateKey"`
@@ -53,8 +54,11 @@ var Config Configuration
 // JWTAuth is the RSA key pair for sign and verify JWT
 var JWTAuth *icrypto.RSAKeyPair
 
-// ProxyURL is the destination URL for the proxy
-var ProxyURL *url.URL
+// BrokerProxyURL is the destination URL for the broker
+var BrokerProxyURL *url.URL
+
+// FunctionProxyURL is the destination URL for the function
+var FunctionProxyURL *url.URL
 
 // AdminRestPrefix is the route prefix for proxy routing
 var AdminRestPrefix string
@@ -70,11 +74,15 @@ func Init() {
 	log.SetLevel(logLevel(Config.LogLevel))
 	log.Warnf("Configuration built from file - %s", configFile)
 	JWTAuth = icrypto.NewRSAKeyPair(Config.PulsarPrivateKey, Config.PulsarPublicKey)
-	uri, err := url.ParseRequestURI(Config.ProxyURL)
+	var err error
+	BrokerProxyURL, err = url.ParseRequestURI(Config.BrokerProxyURL)
 	if err != nil {
 		panic(err)
 	}
-	ProxyURL = uri
+	FunctionProxyURL, err = url.ParseRequestURI(Config.FunctionProxyURL)
+	if err != nil {
+		panic(err)
+	}
 	AdminRestPrefix = Config.AdminRestPrefix
 
 	for _, v := range strings.Split(Config.SuperRoles, ",") {

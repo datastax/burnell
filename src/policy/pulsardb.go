@@ -321,7 +321,7 @@ func (s *TenantPolicyHandler) IsFreeStarterPlan(tenant string) bool {
 
 // AdminAPIGETRespStringArray is a template tenant call that returns an array of string
 func AdminAPIGETRespStringArray(subroute string) ([]string, error) {
-	requestURL := util.SingleJoinSlash(util.Config.ProxyURL, subroute)
+	requestURL := util.SingleJoinSlash(util.Config.BrokerProxyURL, subroute)
 	log.Infof(requestURL)
 	empty := make([]string, 1)
 	newRequest, err := http.NewRequest(http.MethodGet, requestURL, nil)

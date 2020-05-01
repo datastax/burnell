@@ -1,13 +1,15 @@
 ---
 PORT: 8964
-ClusterName: "" 
-ProxyURL: 
+ClusterName: useast1-gcp
+BrokerProxyURL: https://useast1.gcp.kafkaesque.io:8443
+FunctionProxyURL: https://useast1.gcp.kafkaesque.io:8443
 AdminRestPrefix: "/admin/v2"
 PulsarPublicKey: ./unit-test/example_public_key.pub
 PulsarPrivateKey: ./unit-test/example_private_key
 PulsarToken: ""
-PulsarURL : ""
+PulsarURL : "pulsar+ssl://useast1.gcp.kafkaesque.io:6651"
 FederatedPromURL: "http://localhost:9090/federate"
 SuperRoles: ""
-TenantManagmentTopic: ""
+TenantManagmentTopic: "persistent://ming-luo/local-useast1-gcp/test-tenant-management"
 TrustStore: "/etc/ssl/certs/ca-bundle.crt"
+LogLevel: "debug"

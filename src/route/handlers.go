@@ -87,15 +87,22 @@ func StatusPage(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-// DirectProxyHandler - Pulsar admin REST API reverse proxy with caching
-func DirectProxyHandler(w http.ResponseWriter, r *http.Request) {
+// DirectBrokerProxyHandler - Pulsar broker admin REST API
+func DirectBrokerProxyHandler(w http.ResponseWriter, r *http.Request) {
 
-	proxy := httputil.NewSingleHostReverseProxy(util.ProxyURL)
+	proxy := httputil.NewSingleHostReverseProxy(util.BrokerProxyURL)
 	// Update r *http.Request based on proxy
-	updateProxyRequest(r)
+	updateProxyRequest(r, util.BrokerProxyURL)
 
 	proxy.ServeHTTP(w, r)
 
+}
+
+// DirectFunctionProxyHandler - Pulsar function admin REST API
+func DirectFunctionProxyHandler(w http.ResponseWriter, r *http.Request) {
+	proxy := httputil.NewSingleHostReverseProxy(util.FunctionProxyURL)
+	updateProxyRequest(r, util.FunctionProxyURL)
+	proxy.ServeHTTP(w, r)
 }
 
 // CachedProxyHandler is
@@ -104,7 +111,7 @@ func CachedProxyHandler(w http.ResponseWriter, r *http.Request) {
 		CachedProxyGETHandler(w, r)
 		return
 	}
-	DirectProxyHandler(w, r)
+	DirectBrokerProxyHandler(w, r)
 }
 
 // CachedProxyGETHandler is a http proxy handler with caching capability for GET method only.
@@ -116,8 +123,8 @@ func CachedProxyGETHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	requestURL := util.SingleJoinSlash(util.Config.ProxyURL, r.URL.RequestURI())
-	log.Infof("request route %s to proxy %v\n\tdestination url is %s", r.URL.RequestURI(), util.ProxyURL, requestURL)
+	requestURL := util.SingleJoinSlash(util.Config.BrokerProxyURL, r.URL.RequestURI())
+	log.Infof("request route %s to proxy %v\n\tdestination url is %s", r.URL.RequestURI(), util.BrokerProxyURL, requestURL)
 
 	// Update the headers to allow for SSL redirection
 	newRequest, err := http.NewRequest(http.MethodGet, requestURL, nil)
@@ -159,7 +166,7 @@ func NamespacePolicyProxyHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	if tenant, ok := vars["tenant"]; ok {
 		if policy.TenantManager.IsFreeStarterPlan(tenant) {
-			DirectProxyHandler(w, r)
+			DirectBrokerProxyHandler(w, r)
 		}
 	}
 	w.WriteHeader(http.StatusUnauthorized)
@@ -213,7 +220,7 @@ func limitEnforceProxyHandler(w http.ResponseWriter, r *http.Request, eval func(
 	}
 	_, role := ExtractTenant(subject)
 	if util.StrContains(util.SuperRoles, role) {
-		DirectProxyHandler(w, r)
+		DirectBrokerProxyHandler(w, r)
 		return
 	}
 	vars := mux.Vars(r)
@@ -221,7 +228,7 @@ func limitEnforceProxyHandler(w http.ResponseWriter, r *http.Request, eval func(
 		if ok, err := eval(tenant); err != nil {
 			http.Error(w, err.Error(), http.StatusUnauthorized)
 		} else if ok {
-			DirectProxyHandler(w, r)
+			DirectBrokerProxyHandler(w, r)
 		} else {
 			http.Error(w, "over the namespace limit", http.StatusForbidden)
 		}
@@ -442,16 +449,16 @@ func ExtractTenant(tokenSub string) (string, string) {
 	return case1, case1
 }
 
-func updateProxyRequest(r *http.Request) {
-	log.Debugf("request route %s proxy URL %v", r.URL.RequestURI(), util.ProxyURL)
+func updateProxyRequest(r *http.Request, proxy *url.URL) {
+	log.Debugf("request route %s proxy URL %v", r.URL.RequestURI(), proxy)
 
 	// Update the headers to allow for SSL redirection
-	r.URL.Host = util.ProxyURL.Host
-	r.URL.Scheme = util.ProxyURL.Scheme
+	r.URL.Host = proxy.Host
+	r.URL.Scheme = proxy.Scheme
 	r.URL.Path = r.URL.RequestURI()
 	r.Header.Set("X-Forwarded-Host", r.Header.Get("Host"))
 	r.Header.Set("X-Proxy", "burnell")
-	r.Host = util.ProxyURL.Host
+	r.Host = proxy.Host
 	r.RequestURI = r.URL.RequestURI()
 	r.Header["Authorization"] = []string{"Bearer " + util.Config.PulsarToken}
 }
