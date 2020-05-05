@@ -219,6 +219,8 @@ func NewRouter() *mux.Router {
 	// TODO rate limit can be added per route basis
 	router.Use(LimitRate)
 
+	router.Use(ResponseJSONContentType)
+
 	log.Warnf("router added")
 	return router
 }

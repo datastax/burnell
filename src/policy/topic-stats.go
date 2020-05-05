@@ -208,24 +208,26 @@ func PaginateTopicStats(tenant string, offset, pageSize int) (int, int, map[stri
 }
 
 // AggregateBrokersStats aggregates all brokers' statistics
-func AggregateBrokersStats(subRoute string, offset, limit int) (BrokersStats, error) {
+func AggregateBrokersStats(subRoute string, offset, limit int) (BrokersStats, error, int) {
+	if offset < 0 || limit < 0 {
+		return BrokersStats{}, fmt.Errorf("offset or limit cannot be negative"), http.StatusUnprocessableEntity
+	}
 	brokers := GetBrokers()
 	// brokers := []string{util.Config.ProxyURL, util.Config.ProxyURL, util.Config.ProxyURL}
 	statsLog.Infof("broker %v", brokers)
 
 	total := len(brokers)
+	if offset >= total {
+		return BrokersStats{}, fmt.Errorf("offset %d cannot reconcile with the total number of brokers %d", offset, total), http.StatusUnprocessableEntity
+	}
+
 	newOffset := offset + limit
-	size := total
-	if offset >= total || offset < 0 {
-		return BrokersStats{}, fmt.Errorf("offset %d cannot reconcile with the total number of brokers %d", offset, total)
+	if newOffset == 0 || newOffset > total {
+		newOffset = total
 	}
-	if limit > 0 {
-		if newOffset > size {
-			newOffset = size
-		}
-		brokers = brokers[offset:newOffset]
-	}
-	size = len(brokers) //calculate the new size
+	brokers = brokers[offset:newOffset]
+
+	size := len(brokers) //calculate the new size
 
 	resp := BrokersStats{
 		Total:  total,
@@ -246,12 +248,12 @@ func AggregateBrokersStats(subRoute string, offset, limit int) (BrokersStats, er
 			brokerStats = append(brokerStats, result)
 			if size--; size == 0 {
 				resp.Data = brokerStats
-				return resp, nil
+				return resp, nil, http.StatusOK
 			}
 		case <-time.Tick(BrokerTimeoutSecond):
 			statsLog.Errorf("timeout on brokers stats response")
 			resp.Data = brokerStats
-			return resp, fmt.Errorf("broker stats time out by server")
+			return resp, fmt.Errorf("broker stats time out by server"), http.StatusInternalServerError
 		}
 	}
 

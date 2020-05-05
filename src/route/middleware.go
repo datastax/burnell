@@ -108,3 +108,11 @@ func LimitRate(next http.Handler) http.Handler {
 		Rate.Release()
 	})
 }
+
+// ResponseJSONContentType sets JSON as the response content type
+func ResponseJSONContentType(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Content-Type", "application/json")
+		next.ServeHTTP(w, r)
+	})
+}
