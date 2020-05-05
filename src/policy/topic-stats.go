@@ -213,7 +213,7 @@ func AggregateBrokersStats(subRoute string, offset, limit int) (BrokersStats, er
 		return BrokersStats{}, fmt.Errorf("offset or limit cannot be negative"), http.StatusUnprocessableEntity
 	}
 	brokers := GetBrokers()
-	// brokers := []string{util.Config.ProxyURL, util.Config.ProxyURL, util.Config.ProxyURL}
+	// brokers := []string{util.Config.BrokerProxyURL, util.Config.BrokerProxyURL, util.Config.BrokerProxyURL}
 	statsLog.Infof("broker %v", brokers)
 
 	total := len(brokers)
@@ -224,6 +224,8 @@ func AggregateBrokersStats(subRoute string, offset, limit int) (BrokersStats, er
 	newOffset := offset + limit
 	if newOffset == 0 || newOffset > total {
 		newOffset = total
+	} else if limit == 0 {
+		return BrokersStats{}, fmt.Errorf("limit must be greater than 0"), http.StatusUnprocessableEntity
 	}
 	brokers = brokers[offset:newOffset]
 
