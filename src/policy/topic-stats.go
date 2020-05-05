@@ -208,9 +208,9 @@ func PaginateTopicStats(tenant string, offset, pageSize int) (int, int, map[stri
 }
 
 // AggregateBrokersStats aggregates all brokers' statistics
-func AggregateBrokersStats(subRoute string, offset, limit int) (BrokersStats, error, int) {
+func AggregateBrokersStats(subRoute string, offset, limit int) (BrokersStats, int, error) {
 	if offset < 0 || limit < 0 {
-		return BrokersStats{}, fmt.Errorf("offset or limit cannot be negative"), http.StatusUnprocessableEntity
+		return BrokersStats{}, http.StatusUnprocessableEntity, fmt.Errorf("offset or limit cannot be negative")
 	}
 	brokers := GetBrokers()
 	// brokers := []string{util.Config.BrokerProxyURL, util.Config.BrokerProxyURL, util.Config.BrokerProxyURL}
@@ -218,14 +218,14 @@ func AggregateBrokersStats(subRoute string, offset, limit int) (BrokersStats, er
 
 	total := len(brokers)
 	if offset >= total {
-		return BrokersStats{}, fmt.Errorf("offset %d cannot reconcile with the total number of brokers %d", offset, total), http.StatusUnprocessableEntity
+		return BrokersStats{}, http.StatusUnprocessableEntity, fmt.Errorf("offset %d cannot reconcile with the total number of brokers %d", offset, total)
 	}
 
 	newOffset := offset + limit
 	if newOffset == 0 || newOffset > total {
 		newOffset = total
 	} else if limit == 0 {
-		return BrokersStats{}, fmt.Errorf("limit must be greater than 0"), http.StatusUnprocessableEntity
+		return BrokersStats{}, http.StatusUnprocessableEntity, fmt.Errorf("limit must be greater than 0")
 	}
 	brokers = brokers[offset:newOffset]
 
@@ -250,12 +250,12 @@ func AggregateBrokersStats(subRoute string, offset, limit int) (BrokersStats, er
 			brokerStats = append(brokerStats, result)
 			if size--; size == 0 {
 				resp.Data = brokerStats
-				return resp, nil, http.StatusOK
+				return resp, http.StatusOK, nil
 			}
 		case <-time.Tick(BrokerTimeoutSecond):
 			statsLog.Errorf("timeout on brokers stats response")
 			resp.Data = brokerStats
-			return resp, fmt.Errorf("broker stats time out by server"), http.StatusInternalServerError
+			return resp, http.StatusInternalServerError, fmt.Errorf("broker stats time out by server")
 		}
 	}
 

@@ -181,7 +181,7 @@ func BrokerAggregatorHandler(w http.ResponseWriter, r *http.Request) {
 	limit := queryParamInt(params, "limit", 0) // the limit is per broker
 	log.Infof("offset %d limit %d, request subroute %s", offset, limit, r.URL.RequestURI())
 
-	brokerStats, err, statusCode := policy.AggregateBrokersStats(r.URL.RequestURI(), offset, limit)
+	brokerStats, statusCode, err := policy.AggregateBrokersStats(r.URL.RequestURI(), offset, limit)
 	if err != nil {
 		http.Error(w, "broker stats error "+err.Error(), statusCode)
 		return
