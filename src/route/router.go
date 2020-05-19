@@ -5,6 +5,7 @@ import (
 
 	"github.com/apex/log"
 	"github.com/gorilla/mux"
+	"github.com/kafkaesque-io/burnell/src/util"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -25,6 +26,20 @@ func NewRouter() *mux.Router {
 	// Tenant policy management URL
 	router.Path("/k/tenant/{tenant}").Methods(http.MethodGet, http.MethodDelete, http.MethodPost).Name("kafkaesque tenant management").
 		Handler(SuperRoleRequired(http.HandlerFunc(TenantManagementHandler)))
+
+	if util.GetConfig().PulsarBeamTopic != "" {
+		// Pulsar Beam topic and webhook management URL
+		router.Path("/pulsarbeam/v2/topic").Methods(http.MethodGet).Name("Pulsar Beam Get a topic").
+			Handler(AuthVerifyJWT(http.HandlerFunc(PulsarBeamGetTopicHandler)))
+		router.Path("/pulsarbeam/v2/topic").Methods(http.MethodDelete).Name("Pulsar Beam Delete a topic").
+			Handler(AuthVerifyJWT(http.HandlerFunc(PulsarBeamDeleteTopicHandler)))
+		router.Path("/pulsarbeam/v2/topic/{topicKey}").Methods(http.MethodGet).Name("Pulsar Beam Get a topic").
+			Handler(AuthVerifyJWT(http.HandlerFunc(PulsarBeamGetTopicHandler)))
+		router.Path("/pulsarbeam/v2/topic/{topicKey}").Methods(http.MethodDelete).Name("Pulsar Beam Delete a topic").
+			Handler(AuthVerifyJWT(http.HandlerFunc(PulsarBeamDeleteTopicHandler)))
+		router.Path("/pulsarbeam/v2/topic").Methods(http.MethodPost).Name("Pulsar Beam Update a topic").
+			Handler(AuthVerifyJWT(http.HandlerFunc(PulsarBeamUpdateTopicHandler)))
+	}
 
 	// Collect tenant topics statistics in one call
 	router.Path("/stats/topics/{tenant}").Methods(http.MethodGet).Name("tenant topic stats").

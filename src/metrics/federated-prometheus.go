@@ -4,13 +4,13 @@ import (
 	"bufio"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"regexp"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/apex/log"
 	"github.com/kafkaesque-io/burnell/src/util"
 )
 
@@ -83,7 +83,7 @@ func getCache() string {
 func Init() {
 
 	url := util.Config.FederatedPromURL
-	fmt.Printf("Federated Prometheus URL %s\n", url)
+	log.Infof("Federated Prometheus URL %s\n", url)
 	if url != "" {
 		go func(promURL string) {
 			Scrape(promURL)
@@ -125,7 +125,7 @@ func Scrape(url string) {
 	// req, err := http.NewRequest("GET", url+"/?match[]={__name__=~\"..*\"}", nil)
 	req, err := http.NewRequest("GET", url+"/?match[]={job=~\"broker\"}", nil)
 	if err != nil {
-		log.Printf("url request error %s", err.Error())
+		log.Infof("url request error %s", err.Error())
 		return
 	}
 
@@ -134,7 +134,7 @@ func Scrape(url string) {
 		defer resp.Body.Close()
 	}
 	if err != nil {
-		log.Printf("webhook post error %s", err.Error())
+		log.Infof("burnell broker stats collection error %s", err.Error())
 		return
 	}
 
@@ -146,5 +146,5 @@ func Scrape(url string) {
 	c := string(bodyBytes)
 	setCache(c)
 
-	log.Printf("prometheus url %s resp status code %d cach size %d", url, resp.StatusCode, len(c))
+	log.Infof("prometheus url %s resp status code %d cach size %d", url, resp.StatusCode, len(c))
 }

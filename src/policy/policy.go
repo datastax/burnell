@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/kafkaesque-io/burnell/src/util"
+	"github.com/kafkaesque-io/pulsar-beam/src/db"
 )
 
 // TenantStatus can be used for tenant status
@@ -169,14 +170,29 @@ func getPlanPolicy(plan string) *PlanPolicy {
 	}
 }
 
-// TenantManager is the global objects to manage the Tenant REST API
+// TenantManager is the global object to manage the Tenant REST API
 var TenantManager TenantPolicyHandler
+
+// PulsarBeamManager is the global object the manage the Pulsar Beam topic
+var PulsarBeamManager db.PulsarHandler
 
 // Initialize initializes database
 func Initialize() {
 	if err := TenantManager.Setup(); err != nil {
 		log.Fatal(err)
 	}
+
+	if util.GetConfig().PulsarBeamTopic != "" {
+
+		PulsarBeamManager = db.PulsarHandler{}
+		PulsarBeamManager.PulsarURL = util.GetConfig().PulsarURL
+		PulsarBeamManager.TopicName = util.GetConfig().PulsarBeamTopic
+		PulsarBeamManager.PulsarToken = util.GetConfig().PulsarToken
+		if err := PulsarBeamManager.Init(); err != nil {
+			log.Fatal(err)
+		}
+	}
+
 	CacheTopicStatsWorker()
 }
 

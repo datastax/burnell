@@ -3,6 +3,7 @@ package route
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
@@ -15,6 +16,8 @@ import (
 	"github.com/kafkaesque-io/burnell/src/metrics"
 	"github.com/kafkaesque-io/burnell/src/policy"
 	"github.com/kafkaesque-io/burnell/src/util"
+	"github.com/kafkaesque-io/pulsar-beam/src/model"
+	"github.com/kafkaesque-io/pulsar-beam/src/route"
 
 	"github.com/apex/log"
 )
@@ -401,6 +404,122 @@ func TenantManagementHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// PulsarBeamGetTopicHandler gets the topic details
+func PulsarBeamGetTopicHandler(w http.ResponseWriter, r *http.Request) {
+	topicKey, err := route.GetTopicKey(r)
+	if err != nil {
+		util.ResponseErrorJSON(err, w, http.StatusUnprocessableEntity)
+		return
+	}
+
+	// TODO: we may fix the problem that allows negatively look up by another tenant
+	doc, err := policy.PulsarBeamManager.GetByKey(topicKey)
+	if err != nil {
+		log.Errorf("get topic error %v", err)
+		util.ResponseErrorJSON(err, w, http.StatusNotFound)
+		return
+	}
+	if !route.VerifySubjectBasedOnTopic(doc.TopicFullName, r.Header.Get("injectedSubs"), extractEvalTenant) {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
+
+	resJSON, err := json.Marshal(doc)
+	if err != nil {
+		util.ResponseErrorJSON(err, w, http.StatusInternalServerError)
+	} else {
+		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+		w.WriteHeader(http.StatusOK)
+		w.Write(resJSON)
+	}
+
+}
+
+// PulsarBeamUpdateTopicHandler is a wrapper around PulsarBeam Update Handler with additional tenant policy validation.
+func PulsarBeamUpdateTopicHandler(w http.ResponseWriter, r *http.Request) {
+	subject := r.Header.Get("injectedSubs")
+	if subject == "" {
+		http.Error(w, "missing subject", http.StatusUnauthorized)
+		return
+	}
+	decoder := json.NewDecoder(r.Body)
+	defer r.Body.Close()
+
+	var doc model.TopicConfig
+	err := decoder.Decode(&doc)
+	if err != nil {
+		util.ResponseErrorJSON(err, w, http.StatusUnprocessableEntity)
+		return
+	}
+	if !route.VerifySubjectBasedOnTopic(doc.TopicFullName, r.Header.Get("injectedSubs"), extractEvalTenant) {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
+
+	if _, err = model.ValidateTopicConfig(doc); err != nil {
+		util.ResponseErrorJSON(err, w, http.StatusUnprocessableEntity)
+		return
+	}
+
+	id, err := policy.PulsarBeamManager.Update(&doc)
+	if err != nil {
+		log.Infof(err.Error())
+		util.ResponseErrorJSON(err, w, http.StatusConflict)
+		return
+	}
+	if len(id) > 1 {
+		savedDoc, err := policy.PulsarBeamManager.GetByKey(id)
+		if err != nil {
+			util.ResponseErrorJSON(err, w, http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusCreated)
+		resJSON, err := json.Marshal(savedDoc)
+		if err != nil {
+			util.ResponseErrorJSON(err, w, http.StatusInternalServerError)
+			return
+		}
+		w.Write(resJSON)
+		return
+	}
+	util.ResponseErrorJSON(fmt.Errorf("failed to update"), w, http.StatusInternalServerError)
+	return
+}
+
+// PulsarBeamDeleteTopicHandler deletes a topic
+func PulsarBeamDeleteTopicHandler(w http.ResponseWriter, r *http.Request) {
+	topicKey, err := route.GetTopicKey(r)
+	if err != nil {
+		util.ResponseErrorJSON(err, w, http.StatusUnprocessableEntity)
+		return
+	}
+
+	doc, err := policy.PulsarBeamManager.GetByKey(topicKey)
+	if err != nil {
+		log.Errorf("failed to get topic based on key %s err: %v", topicKey, err)
+		util.ResponseErrorJSON(err, w, http.StatusNotFound)
+		return
+	}
+	if !route.VerifySubjectBasedOnTopic(doc.TopicFullName, r.Header.Get("injectedSubs"), extractEvalTenant) {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
+
+	deletedKey, err := policy.PulsarBeamManager.DeleteByKey(topicKey)
+	if err != nil {
+		util.ResponseErrorJSON(err, w, http.StatusNotFound)
+		return
+	}
+	resJSON, err := json.Marshal(deletedKey)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+	} else {
+		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+		w.WriteHeader(http.StatusOK)
+		w.Write(resJSON)
+	}
+}
+
 // VerifyTenant verifies tenant and returns tenant name and weather verification has passed
 func VerifyTenant(r *http.Request) (string, string, bool) {
 	vars := mux.Vars(r)
@@ -423,6 +542,12 @@ func VerifySubject(requiredSubject, tokenSubjects string) bool {
 		return requiredSubject == subCase1 || requiredSubject == subCase2
 	}
 	return false
+}
+
+// this is a callback for Pulsar Beam's route.VerifySubjectBasedOnTopic
+func extractEvalTenant(requiredSubject, tokenSub string) bool {
+	subCase1, subCase2 := ExtractTenant(tokenSub)
+	return requiredSubject == subCase1 || requiredSubject == subCase2
 }
 
 // ExtractTenant attempts to extract tenant based on delimiter `-` and `-client-`
