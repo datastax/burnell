@@ -67,13 +67,17 @@ var (
 	}
 )
 
-func setCache(c string) {
+var logger = log.WithFields(log.Fields{"app": "burnell,federated-prom-scraper"})
+
+// SetCache sets the federated prom cache
+func SetCache(c string) {
 	cacheLock.Lock()
 	cache = c
 	cacheLock.Unlock()
 }
 
-func getCache() string {
+// GetCache gets the federated prom cache
+func GetCache() string {
 	cacheLock.RLock()
 	defer cacheLock.RUnlock()
 	return cache
@@ -83,13 +87,14 @@ func getCache() string {
 func Init() {
 
 	url := util.Config.FederatedPromURL
-	log.Infof("Federated Prometheus URL %s\n", url)
+	interval := time.Duration(util.GetEnvInt("ScrapeFederatedPromIntervalSeconds", 35)) * time.Second
+	logger.Infof("Federated Prometheus URL %s at interval %v\n", url, interval)
 	if url != "" {
 		go func(promURL string) {
 			Scrape(promURL)
 			for {
 				select {
-				case <-time.Tick(45 * time.Second):
+				case <-time.Tick(interval):
 					Scrape(promURL)
 				}
 			}
@@ -100,13 +105,26 @@ func Init() {
 // FilterFederatedMetrics collects the metrics the subject is allowed to access
 func FilterFederatedMetrics(subject string) string {
 	var rc string
-	scanner := bufio.NewScanner(strings.NewReader(getCache()))
+	scanner := bufio.NewScanner(strings.NewReader(GetCache()))
 
 	pattern := fmt.Sprintf(`.*,namespace="%s.*`, subject)
+	typeDefPattern := fmt.Sprintf(`^# TYPE .*`)
+	typeDef := ""
 	for scanner.Scan() {
-		matched, err := regexp.MatchString(pattern, scanner.Text())
+		text := scanner.Text()
+		matched, err := regexp.MatchString(typeDefPattern, text)
 		if matched && err == nil {
-			rc = fmt.Sprintf("%s%s\n", rc, scanner.Text())
+			typeDef = text
+		} else {
+			matched, err = regexp.MatchString(pattern, text)
+			if matched && err == nil {
+				if typeDef == "" {
+					rc = fmt.Sprintf("%s%s\n", rc, text)
+				} else {
+					rc = fmt.Sprintf("%s%s\n%s\n", rc, typeDef, text)
+					typeDef = ""
+				}
+			}
 		}
 	}
 	return rc
@@ -114,7 +132,7 @@ func FilterFederatedMetrics(subject string) string {
 
 // AllNamespaceMetrics returns all namespace metrics on the brokers
 func AllNamespaceMetrics() string {
-	return getCache()
+	return GetCache()
 }
 
 // Scrape scrapes the federated prometheus endpoint
@@ -125,7 +143,7 @@ func Scrape(url string) {
 	// req, err := http.NewRequest("GET", url+"/?match[]={__name__=~\"..*\"}", nil)
 	req, err := http.NewRequest("GET", url+"/?match[]={job=~\"broker\"}", nil)
 	if err != nil {
-		log.Infof("url request error %s", err.Error())
+		logger.Errorf("url request error %s", err.Error())
 		return
 	}
 
@@ -134,7 +152,7 @@ func Scrape(url string) {
 		defer resp.Body.Close()
 	}
 	if err != nil {
-		log.Infof("burnell broker stats collection error %s", err.Error())
+		logger.Errorf("broker stats collection error %s", err.Error())
 		return
 	}
 
@@ -144,7 +162,7 @@ func Scrape(url string) {
 	}
 
 	c := string(bodyBytes)
-	setCache(c)
+	SetCache(c)
 
-	log.Infof("prometheus url %s resp status code %d cach size %d", url, resp.StatusCode, len(c))
+	logger.Infof("prometheus url %s resp status code %d cach size %d", url, resp.StatusCode, len(c))
 }

@@ -293,6 +293,7 @@ func PulsarFederatedPrometheusHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	_, tenant := ExtractTenant(subject)
 	// fmt.Printf("subject for federated prom %s tenant %s\n", subject, tenant)
+	w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
 	if util.StrContains(util.SuperRoles, tenant) {
 		w.Write([]byte(metrics.AllNamespaceMetrics()))
 		w.WriteHeader(http.StatusOK)
