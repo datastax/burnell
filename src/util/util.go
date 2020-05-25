@@ -112,3 +112,36 @@ func SingleJoinSlash(a, b string) string {
 	}
 	return a + b
 }
+
+// ExtractPartsFromTopicFn extracts tenant, namespace, topic name from a full topic name
+func ExtractPartsFromTopicFn(topicFn string) (string, string, string, error) {
+	if !(strings.HasPrefix(topicFn, "persistent://") || strings.HasPrefix(topicFn, "non-persistent://")) {
+		return "", "", "", fmt.Errorf("topic type supports persistent:// or non-persistent:// but the topic is %s", topicFn)
+	}
+
+	topicFnParts := strings.Split(topicFn, "://")
+	if len(topicFnParts) != 2 {
+		return "", "", "", fmt.Errorf("incorrect formated topic fullname")
+	}
+	parts := strings.Split(topicFnParts[1], "/")
+	if len(parts) != 3 {
+		return "", "", "", fmt.Errorf("incorrect formated topic tenant namespace topic parts")
+	}
+
+	return parts[0], parts[1], parts[2], nil
+}
+
+// BytesToMegaBytesFloor converts bytes to megabytes.
+// 0 bytes -> 0 MB
+// Between 0 to 1 MB -> 1MB (that means one byte is 1 MB)
+// over 1MB rounds down (that means 15.9MB is 15MB)
+func BytesToMegaBytesFloor(bytes int64) int64 {
+	if bytes == 0 {
+		return 0
+	}
+	mb := bytes / (1000 * 1000)
+	if mb > 1 {
+		return mb
+	}
+	return 1
+}

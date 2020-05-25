@@ -310,6 +310,33 @@ func PulsarFederatedPrometheusHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(data))
 }
 
+// TenantUsageHandler returns tenant usage
+func TenantUsageHandler(w http.ResponseWriter, r *http.Request) {
+	var usages []metrics.Usage
+	var err error
+	vars := mux.Vars(r)
+	tenant, ok := vars["tenant"]
+	if ok {
+		usages, err = metrics.GetTenantNamespacesUsage(tenant)
+	} else {
+		usages, err = metrics.GetTenantsUsage()
+	}
+	if err != nil {
+		log.Errorf("failed to get tenant usage %s", err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	data, err := json.Marshal(usages)
+	if err != nil {
+		log.Errorf("marshal tenant usage error %s", err.Error())
+		http.Error(w, "failed to marshal tenant usage data", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(data))
+}
+
 // TenantTopicStatsHandler returns tenant topic statistics
 func TenantTopicStatsHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)

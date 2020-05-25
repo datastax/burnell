@@ -10,12 +10,15 @@ require (
 	github.com/ghodss/yaml v1.0.0
 	github.com/golang/protobuf v1.4.0-rc.4
 	github.com/gorilla/mux v1.7.3
+	github.com/hashicorp/go-memdb v1.2.1
 	github.com/kafkaesque-io/pulsar-beam v0.0.2-0.20200518225447-9eb19b423b0d
 	github.com/klauspost/compress v1.9.2
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/pierrec/lz4 v2.0.5+incompatible
 	github.com/pkg/errors v0.8.1
 	github.com/prometheus/client_golang v1.4.1
+	github.com/prometheus/client_model v0.2.0
+	github.com/prometheus/common v0.10.0
 	github.com/rs/cors v1.7.0
 	github.com/samuel/go-zookeeper v0.0.0-20190923202752-2cc03de413da
 	github.com/sirupsen/logrus v1.5.0

@@ -8,6 +8,8 @@ Burnell is a Pulsar proxy. It offers the following features.
 - [x] Tenant based authorization over Pulsar Admin REST API
 - [x] Expose tenant Prometheus metrics on the brokers
 - [x] Interface to query function logs
+- [x] Pulsar Beam webhook and topic management REST API
+- [x] Tenants and tenant's namespace usage metering, total bytes and message in and out
 - [ ] Proxy Pulsar TCP protocol
 
 ## Rest API
@@ -49,6 +51,20 @@ The response body returns logs in complete lines (EOL) up to the maximum bytes s
 ```
 ```
 {"tenant":"ming-luo","sessionId":"reserverd for snapshot iteration","offset":1,"total":1,"data":{"persistent://ming-luo/namespace2/test-topic3":{"averageMsgSize":0,"backlogSize":0,"msgRateIn":0,"msgRateOut":0,"msgThroughputIn":0,"msgThroughputOut":0,"pendingAddEntriesCount":0,"producerCount":0,"publishers":[],"replication":{},"storageSize":0,"subscriptions":{"mysub":{"consumers":[],"msgBacklog":0,"msgRateExpired":0,"msgRateOut":0,"msgRateRedeliver":0,"msgThroughputOut":0,"numberOfEntriesSinceFirstNotAckedMessage":1,"totalNonContiguousDeletedMessagesRange":0,"type":"Exclusive"}}}}}
+```
+
+### Tenant and namespace level usage metering
+#### Tenant usage metering endpoint
+Returns all tenants' usage metering data including the number of messages and total bytes in and out, and backlog size
+Superuser token is required
+```
+/tenantsusage
+```
+#### Tenant usage metering endpoint
+Returns individual namespaces' usage metering data including the number of messages and total bytes in and out, and backlog size, under a tenant
+Superuser token or tenant token is required
+```
+/namespacesusage/{tenant}
 ```
 
 ### Tenant CRUD

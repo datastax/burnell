@@ -15,3 +15,32 @@ func TestGetEnvInt(t *testing.T) {
 	os.Setenv("Bogus2", "-90o")
 	assert(t, GetEnvInt("Bogus2", 546) == 546, "")
 }
+
+func TestExtractPartsFromTopicFn(t *testing.T) {
+	tn, ns, topic, err := ExtractPartsFromTopicFn("persistent://tenant-ab/namespace2/topic789")
+	errNil(t, err)
+	assert(t, tn == "tenant-ab", "valid tenant")
+	assert(t, ns == "namespace2", "valid namespace")
+	assert(t, topic == "topic789", "valid topic")
+
+	tn, ns, topic, err = ExtractPartsFromTopicFn("persisten://tenant-ab/namespace2/topic789")
+	assert(t, err != nil, "")
+
+	tn, ns, topic, err = ExtractPartsFromTopicFn("persistent://tenant-ab/namespace2/topic789/anotherpath")
+	assert(t, err != nil, "")
+
+	tn, ns, topic, err = ExtractPartsFromTopicFn("persistent://tenant-ab/namespace2")
+	assert(t, err != nil, "")
+
+	tn, ns, topic, err = ExtractPartsFromTopicFn("persistent:/tenant-ab/namespace2/topic789")
+	assert(t, err != nil, "")
+
+}
+
+func TestBytesToMB(t *testing.T) {
+	assert(t, 1 == BytesToMegaBytesFloor(1000), "test 1000 bytes")
+	assert(t, 1 == BytesToMegaBytesFloor(1000*900), "test 1000*900 bytes")
+	assert(t, 1 == BytesToMegaBytesFloor(1000*1500), "test 1500 * 1000 bytes")
+	assert(t, 2 == BytesToMegaBytesFloor(1000*2000), "test  2 megabytes")
+	assert(t, 40 == BytesToMegaBytesFloor(40479809), "test  megabytes")
+}
