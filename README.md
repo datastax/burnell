@@ -27,13 +27,13 @@ Example -
 /function-logs/ming-luo/namespace2/for-monitor-function
 ```
 
-Query parameters allows retrieve previous logs or newer logs.
+To retrieve earlier logs or newer logs, use query parameters `backwardpos` or `forwardpos` that indicates the byte index in the log file. These values can be obtained from the response body of the last query, under these attributes `BackwardPosition` and `ForwardPosition`. We run an algorithm to return a few complete lines. It is important to use the exact positions in the response body to have those complete log lines. An arbitary position will result truncated logs.
 ```
-/function-logs/{tenant}/{namespace}/{function-name}?bytes=1000?backwardpos=45000
+/function-logs/{tenant}/{namespace}/{function-name}?backwardpos=45000
 ```
-The response body returns logs in complete lines (EOL) up to the maximum bytes specified in the `bytes` query parameters.
+It is client's responsiblity to keep track of the log file traverse position in both backward and forward position. The number must be a positive number. 0 value of `backwardpos` or `forwardpos` resets the `backwardpos` to EOF of the log file that displays the last few lines.
 
-`backwardpos` and `forwardpos` allows the log to be retrieved from either backward or forward position from where the log rolling initially started. The response body will specify the current backward and forward positions that can be used for the next calls query parameters.
+Since the algorithm always returns a few complete logs, the payload size can vary. Usualy the size ranges from one or two kilobytes.
 ```
 {
     "BackwardPosition": 47987,

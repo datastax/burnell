@@ -262,15 +262,11 @@ func GetFunctionLog(functionName string, rd FunctionLogRequest) (FunctionLogResp
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
-	var bytes int64 = 800
-	if rd.Bytes > 0 {
-		bytes = rd.Bytes
-	}
 	direction := requestDirection(rd)
 	req := &logstream.ReadRequest{
 		File:          logstream.FunctionLogPath(function.Tenant, function.Namespace, function.FunctionName, 0),
 		Direction:     direction,
-		Bytes:         bytes,
+		Bytes:         rd.Bytes,
 		ForwardIndex:  rd.ForwardPosition,
 		BackwardIndex: rd.BackwardPosition,
 	}
@@ -278,21 +274,13 @@ func GetFunctionLog(functionName string, rd FunctionLogRequest) (FunctionLogResp
 	res, err := c.Read(ctx, req)
 	if err != nil {
 		logger.Errorf("grcp call to log server failed : %v", err)
-		return FunctionLogResponse{}, fmt.Errorf("timed out")
+		return FunctionLogResponse{}, err
 	}
-	text, offset := adjustLogs(res.GetLogs())
 	logger.Debugf("logs: %s %v %v", res.GetLogs(), res.GetBackwardIndex(), res.GetForwardIndex())
-	backwardPos := res.GetBackwardIndex()
-	forwardPos := res.GetForwardIndex()
-	if direction == logstream.ReadRequest_FORWARD {
-		forwardPos = forwardPos + bytes - int64(offset)
-	} else {
-		backwardPos = backwardPos - bytes + int64(offset)
-	}
 	return FunctionLogResponse{
-		Logs:             text,
-		BackwardPosition: backwardPos,
-		ForwardPosition:  forwardPos,
+		Logs:             res.GetLogs(),
+		BackwardPosition: res.GetBackwardIndex(),
+		ForwardPosition:  res.GetForwardIndex(),
 	}, nil
 }
 
@@ -301,13 +289,6 @@ func requestDirection(rd FunctionLogRequest) logstream.ReadRequest_Direction {
 		return logstream.ReadRequest_FORWARD
 	}
 	return logstream.ReadRequest_BACKWARD
-}
-
-// adjustLogs remove the first line of the logs because it might be incomplete
-func adjustLogs(text string) (string, int) {
-	offset := strings.Index(text, "\n")
-	lines := text[offset+1:]
-	return lines, offset
 }
 
 // /pulsar/logs/functions/ming-luo/namespace2/for-monitor-function

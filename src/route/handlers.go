@@ -256,19 +256,24 @@ func FunctionLogsHandler(w http.ResponseWriter, r *http.Request) {
 	params := u.Query()
 	reqObj.BackwardPosition = int64(queryParamInt(params, "backwardpos", 0))
 	reqObj.ForwardPosition = int64(queryParamInt(params, "forwardpos", 0))
-	reqObj.Bytes = int64(queryParamInt(params, "bytes", 0))
+	reqObj.Bytes = int64(queryParamInt(params, "bytes", 2400))
 	log.WithField("app", "FunctionLogHandler").Infof("function log query params %v", reqObj)
 	if reqObj.BackwardPosition > 0 && reqObj.ForwardPosition > 0 {
 		http.Error(w, "backwardpos and forwardpos cannot be specified at the same time", http.StatusBadRequest)
+		return
+	}
+	if reqObj.Bytes < 0 {
+		http.Error(w, "bytes cannot be a negative value", http.StatusBadRequest)
+		return
 	}
 
 	clientRes, err := logclient.GetFunctionLog(tenant+namespace+funcName, reqObj)
 	if err != nil {
-		if err == logclient.ErrNotFoundFunction {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
+		if err == logclient.ErrNotFoundFunction || strings.HasSuffix(err.Error(), "no such file or directory") {
+			http.Error(w, err.Error(), http.StatusNotFound)
+		} else {
+			http.Error(w, "log server returned "+err.Error(), http.StatusInternalServerError)
 		}
-		http.Error(w, "log server returned "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 	// fmt.Printf("pos %d, %d\n", clientRes.BackwardPosition, clientRes.ForwardPosition)
@@ -279,7 +284,11 @@ func FunctionLogsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
+	if clientRes.Logs == "" {
+		w.WriteHeader(http.StatusNoContent)
+	} else {
+		w.WriteHeader(http.StatusOK)
+	}
 	w.Write(jsonResponse)
 	return
 }

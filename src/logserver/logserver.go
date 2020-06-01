@@ -10,6 +10,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"strings"
 
 	pb "github.com/kafkaesque-io/burnell/src/logstream"
 	"github.com/kafkaesque-io/burnell/src/util"
@@ -21,7 +22,7 @@ type server struct {
 	pb.UnimplementedLogStreamServer
 }
 
-const readStep int64 = 800
+const readStep int64 = 2400
 
 // FileReader is an object to keep track all the reader properties
 type FileReader struct {
@@ -64,38 +65,74 @@ func (f *FileReader) Close() {
 
 // ReadBackward reads backward
 func (f *FileReader) ReadBackward(step int64) (string, int64, error) {
-	bStep := readStep
-	if step > 0 {
-		bStep = step
+	readBytes := readStep
+	if step > readStep {
+		readBytes = step
 	}
-	buf := make([]byte, bStep)
-	_, err := f.file.ReadAt(buf, f.backwardPos-bStep)
-	if err != nil {
-		return "", 0, err
+
+	readPos := f.backwardPos - readBytes
+	// fmt.Printf("readPos %d origin backwardPos %d readBytes %d\n", readPos, f.backwardPos, readBytes)
+	if readPos <= 0 {
+		temp := f.forwardPos
+		f.forwardPos = 0
+		text, _, err := f.ReadForward(f.backwardPos)
+		f.forwardPos = temp
+		if err != nil {
+			return "", f.backwardPos, err
+		}
+		//convert the forwardPos to backwarPos since we have reached the beginning of the file
+		return text, 0, nil
 	}
-	f.backwardPos = f.backwardPos - bStep
-	return string(buf), f.backwardPos, nil
+
+	process := true
+	for process {
+		buf := make([]byte, readBytes)
+		_, err := f.file.ReadAt(buf, f.backwardPos-readBytes)
+		if err != nil {
+			return "", 0, err
+		}
+		if logs, index := truncatePreLine(string(buf)); index > 0 {
+			// fmt.Printf("index %d readPos %d origin backwardPos %d readBytes %d\n", index, readPos, f.backwardPos, readBytes)
+			return logs, f.backwardPos - readBytes + int64(index), nil
+		}
+		readBytes = readBytes + readStep
+	}
+	return "", f.backwardPos, fmt.Errorf("unexpected read backwards error")
 }
 
 // ReadForward reads forward
 func (f *FileReader) ReadForward(step int64) (string, int64, error) {
-	bStep := readStep
-	if step > 0 {
-		bStep = step
+	readBytes := readStep
+	if step > readStep {
+		readBytes = step
 	}
+
 	newEOFPos, err := f.file.Seek(0, 2)
 	numNewBytes := newEOFPos - f.forwardPos
 	if numNewBytes <= 0 {
 		return "", 0, nil
 	}
 
-	buf := make([]byte, numNewBytes)
-	_, err = f.file.ReadAt(buf, f.forwardPos)
-	if err != nil {
-		return "", 0, err
+	process := true
+	for process {
+		if numNewBytes < readBytes {
+			readBytes = numNewBytes
+		}
+		buf := make([]byte, readBytes)
+		_, err = f.file.ReadAt(buf, f.forwardPos)
+		if err != nil {
+			return "", 0, err
+		}
+
+		if logs, index := truncatePostLine(string(buf)); index > 0 {
+			return logs, f.forwardPos + int64(index), nil
+		}
+
+		readBytes = readBytes + readStep
+		log.Printf("more readyBytes %d\n", readBytes)
 	}
-	f.forwardPos = f.forwardPos + bStep
-	return string(buf), f.backwardPos, nil
+
+	return "", newEOFPos, fmt.Errorf("unexpected error")
 }
 
 // Implementation of logStream server
@@ -107,20 +144,19 @@ func (s *server) Read(ctx context.Context, in *pb.ReadRequest) (*pb.LogLines, er
 
 	var txt string
 	if in.GetDirection() == pb.ReadRequest_BACKWARD {
-		txt, _, err = r.ReadBackward(in.GetBytes())
+		txt, newBackwardPos, err := r.ReadBackward(in.GetBytes())
 		if err != nil {
 			return nil, err
 		}
-		// fmt.Printf("backwardPos %d forwardPos %d\ntxt:%s\n", r.backwardPos, r.forwardPos, txt)
-		return &pb.LogLines{Logs: txt, ForwardIndex: r.forwardPos, BackwardIndex: r.backwardPos}, nil
+		// fmt.Printf("backwardPos %d forwardPos %d\ntxt:%s\n", newBackwardPos, r.forwardPos, txt)
+		return &pb.LogLines{Logs: txt, ForwardIndex: r.forwardPos, BackwardIndex: newBackwardPos}, nil
 	}
-	txt, _, err = r.ReadForward(in.GetBytes())
+	txt, newForwardPos, err := r.ReadForward(in.GetBytes())
 	if err != nil {
 		return nil, err
 	}
 
-	return &pb.LogLines{Logs: txt, ForwardIndex: r.forwardPos, BackwardIndex: r.backwardPos}, nil
-
+	return &pb.LogLines{Logs: txt, ForwardIndex: newForwardPos, BackwardIndex: r.backwardPos}, nil
 }
 
 func main() {
@@ -138,4 +174,25 @@ func main() {
 	if e := srv.Serve(listener); e != nil {
 		log.Fatalln(err)
 	}
+}
+
+// truncatePostLine ensures complete lines for forward walking/log tailing
+func truncatePostLine(text string) (string, int) {
+	if !strings.Contains(text, "\n") {
+		return "", -1
+	}
+	offset := strings.LastIndex(text, "\n")
+	lines := text[:offset+1]
+	return lines, offset + 1
+}
+
+// truncatePreLine ensures complete lines for backward walking
+func truncatePreLine(text string) (string, int) {
+	lines := strings.Split(text, "\n")
+	if len(lines) < 3 {
+		// we need at least two complete lines
+		return "", -1
+	}
+	offset := strings.Index(text, "\n")
+	return text[offset+1:], offset + 1
 }
