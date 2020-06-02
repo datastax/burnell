@@ -6,7 +6,7 @@ FROM golang:alpine AS builder
 # Add Maintainer Info
 LABEL maintainer="kafkaesque.io"
 
-RUN apk --no-cache add build-base git bzr mercurial gcc
+RUN apk --no-cache add build-base git mercurial gcc
 WORKDIR /root/
 ADD . /root
 RUN cd /root/src/logserver && go build -o logcollector

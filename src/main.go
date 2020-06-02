@@ -2,7 +2,6 @@ package main
 
 import (
 	"log"
-	"net/http"
 
 	"github.com/rs/cors"
 
@@ -34,12 +33,6 @@ func main() {
 	certFile := util.GetConfig().CertFile
 	keyFile := util.GetConfig().KeyFile
 	port := util.AssignString(config.PORT, "8080")
-	log.Printf("start serv on port %s\n", port)
-	if len(certFile) > 1 && len(keyFile) > 1 {
-		log.Printf("load certFile %s and keyFile %s\n", certFile, keyFile)
-		log.Fatal(http.ListenAndServeTLS(":"+port, certFile, keyFile, handler))
-	} else {
-		log.Fatal(http.ListenAndServe(":"+port, handler))
-	}
+	log.Fatal(route.ListenAndServeTLS(":"+port, certFile, keyFile, handler))
 
 }
