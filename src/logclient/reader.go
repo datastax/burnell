@@ -240,7 +240,7 @@ func FunctionTopicWatchDog() {
 
 // GetFunctionLog gets the logs from the function worker process
 // Since the function may get reassigned after restart, we will establish the connection every time the log request is being made.
-func GetFunctionLog(functionName string, rd FunctionLogRequest) (FunctionLogResponse, error) {
+func GetFunctionLog(functionName, instance string, rd FunctionLogRequest) (FunctionLogResponse, error) {
 	// var funcWorker string
 	function, ok := ReadFunctionMap(functionName)
 	if !ok {
@@ -264,7 +264,7 @@ func GetFunctionLog(functionName string, rd FunctionLogRequest) (FunctionLogResp
 
 	direction := requestDirection(rd)
 	req := &logstream.ReadRequest{
-		File:          logstream.FunctionLogPath(function.Tenant, function.Namespace, function.FunctionName, 0),
+		File:          logstream.FunctionLogPath(function.Tenant, function.Namespace, function.FunctionName, instance),
 		Direction:     direction,
 		Bytes:         rd.Bytes,
 		ForwardIndex:  rd.ForwardPosition,

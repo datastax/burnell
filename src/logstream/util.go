@@ -1,7 +1,5 @@
 package logstream
 
-import "strconv"
-
 import (
 	"os"
 
@@ -15,6 +13,6 @@ const DefaultLogServerPort = ":4040"
 var FilePath = util.AssignString(os.Getenv("FunctionLogPathPrefix"), "/pulsar/logs/functions/")
 
 // FunctionLogPath returns the absolute file name of function log.
-func FunctionLogPath(tenant, namespace, function string, instance int) string {
-	return FilePath + tenant + "/" + namespace + "/" + function + "/" + function + "-" + strconv.Itoa(instance) + ".log"
+func FunctionLogPath(tenant, namespace, function, instance string) string {
+	return FilePath + tenant + "/" + namespace + "/" + function + "/" + function + "-" + instance + ".log"
 }

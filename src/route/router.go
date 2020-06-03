@@ -47,8 +47,10 @@ func NewRouter() *mux.Router {
 	router.Path("/stats/topics/{tenant}").Methods(http.MethodGet).Name("tenant topic stats").
 		Handler(AuthVerifyTenantJWT(http.HandlerFunc(TenantTopicStatsHandler)))
 
-	// TODO: add two cases without tenant/namesapce and without tenant
+	// Retrieve function logs, instance is optional and default to 0
 	router.Path("/function-logs/{tenant}/{namespace}/{function}").Methods(http.MethodGet).Name("function-logs").
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(FunctionLogsHandler)))
+	router.Path("/function-logs/{tenant}/{namespace}/{function}/{instance}").Methods(http.MethodGet).Name("function-logs").
 		Handler(AuthVerifyTenantJWT(http.HandlerFunc(FunctionLogsHandler)))
 
 	// Pulsar Admin REST API proxy

@@ -245,7 +245,11 @@ func FunctionLogsHandler(w http.ResponseWriter, r *http.Request) {
 	tenant, ok := vars["tenant"]
 	namespace, ok2 := vars["namespace"]
 	funcName, ok3 := vars["function"]
-	log.WithField("app", "FunctionLogHandler").Debugf("funcation path %s, %s, %s", tenant, namespace, funcName)
+	instance, ok4 := vars["instance"]
+	if !ok4 {
+		instance = "0"
+	}
+	log.WithField("app", "FunctionLogHandler").Infof("funcation path %s, %s, %s, instance %s", tenant, namespace, funcName, instance)
 	if !(ok && ok2 && ok3) {
 		w.WriteHeader(http.StatusUnprocessableEntity)
 		return
@@ -267,7 +271,7 @@ func FunctionLogsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	clientRes, err := logclient.GetFunctionLog(tenant+namespace+funcName, reqObj)
+	clientRes, err := logclient.GetFunctionLog(tenant+namespace+funcName, instance, reqObj)
 	if err != nil {
 		if err == logclient.ErrNotFoundFunction || strings.HasSuffix(err.Error(), "no such file or directory") {
 			http.Error(w, err.Error(), http.StatusNotFound)
