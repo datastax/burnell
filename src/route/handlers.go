@@ -592,6 +592,7 @@ func extractEvalTenant(requiredSubject, tokenSub string) bool {
 // 2. chris-kafkaesque-io-client-12345qbc
 // 3. chris-kafkaesque-io
 // 4. chris-kafkaesque-io-client-client-12345qbc
+// 4. chris-kafkaesque-io-client-admin-12345qbc
 func ExtractTenant(tokenSub string) (string, string) {
 	var case1 string
 	// expect `-` in subject unless it is superuser, or admin
@@ -606,6 +607,9 @@ func ExtractTenant(tokenSub string) (string, string) {
 	case1 = strings.Join(parts[:validLength], subDelimiter)
 
 	if parts[validLength-1] == "client" {
+		return case1, strings.Join(parts[:(validLength-1)], subDelimiter)
+	}
+	if parts[validLength-1] == "admin" {
 		return case1, strings.Join(parts[:(validLength-1)], subDelimiter)
 	}
 	return case1, case1

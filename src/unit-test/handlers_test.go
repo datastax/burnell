@@ -10,6 +10,10 @@ func TestSubjectMatch(t *testing.T) {
 	assert(t, VerifySubject("chris-kafkaesque-io", "chris-kafkaesque-io-12345qbc"), "")
 	assert(t, VerifySubject("chris-kafkaesque-io", "chris-kafkaesque-io-client-12345qbc"), "")
 	assert(t, VerifySubject("chris-kafkaesque-io-client", "chris-kafkaesque-io-client-client-12345qbc"), "")
+	assert(t, VerifySubject("chris-kafkaesque-io-client", "chris-kafkaesque-io-client-admin-12345qbc"), "")
+	assert(t, VerifySubject("chris-kafkaesque-io", "chris-kafkaesque-io-admin-12345qbc"), "")
+	assert(t, VerifySubject("your-framework-dev", "your-framework-dev-admin-8e5f5b7412345"), "")
+	assert(t, !VerifySubject("your-framework-dev", "your-framework-dev-adMin-8e5f5b7412345"), "")
 
 	assert(t, !VerifySubject("chris-kafkaesque-io", "chris-kafkaesque-io"), "")
 	assert(t, !VerifySubject("chris-kafkaesque-io", "chris-kafkaesque-io-client-client-12345qbc"), "")
@@ -26,6 +30,10 @@ func TestSubjectMatch(t *testing.T) {
 	t1, t2 = ExtractTenant("chris-kafkaesque-io-client-12345qbc")
 	equals(t, t1, "chris-kafkaesque-io-client")
 	equals(t, t2, "chris-kafkaesque-io")
+
+	t1, t2 = ExtractTenant("your-framework-dev-admin-8e5f5b7412345")
+	equals(t, t1, "your-framework-dev-admin")
+	equals(t, t2, "your-framework-dev")
 
 	t1, t2 = ExtractTenant("chris-kafkaesque-io-client-client-12345qbc")
 	equals(t, t1, "chris-kafkaesque-io-client-client")
