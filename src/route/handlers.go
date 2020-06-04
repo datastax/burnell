@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
@@ -364,7 +365,19 @@ func TenantTopicStatsHandler(w http.ResponseWriter, r *http.Request) {
 	pageSize := queryParamInt(params, "limit", 50)
 	log.Debugf("offset %d limit %d", offset, pageSize)
 
-	totalSize, newOffset, topics := policy.PaginateTopicStats(tenant, offset, pageSize)
+	// body specifies a list of must required topic,
+	// the handler makes extra calls to retreive those stats if they are not in the cache
+	decoder := json.NewDecoder(r.Body)
+	defer r.Body.Close()
+
+	var topicList []string
+	err := decoder.Decode(&topicList)
+	if err != nil && err != io.EOF {
+		util.ResponseErrorJSON(err, w, http.StatusUnprocessableEntity)
+		return
+	}
+
+	totalSize, newOffset, topics := policy.PaginateTopicStats(tenant, offset, pageSize, topicList)
 	if totalSize > 0 {
 		data, err := json.Marshal(TopicStatsResponse{
 			Tenant:    tenant,
@@ -383,6 +396,31 @@ func TenantTopicStatsHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusNoContent)
 	return
+}
+
+// GroupTopicsByNamespaceHandler groups topics under a tenant's namespace
+func GroupTopicsByNamespaceHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	tenant, ok := vars["tenant"]
+	if !ok {
+		http.Error(w, "missing tenant name", http.StatusUnprocessableEntity)
+		return
+	}
+	topics, length := policy.CountTopics(tenant)
+	if length < 0 {
+		w.WriteHeader(http.StatusNotFound)
+	} else if length == 0 {
+		w.WriteHeader(http.StatusNoContent)
+	} else {
+		data, err := json.Marshal(topics)
+		if err != nil {
+			http.Error(w, "failed to marshal cached topics data", http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write(data)
+		return
+	}
 }
 
 func queryParamInt(params url.Values, name string, defaultV int) int {

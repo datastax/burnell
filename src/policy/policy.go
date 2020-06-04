@@ -193,6 +193,9 @@ func Initialize() {
 		}
 	}
 
+	if err := InitTopicStatsDB(); err != nil {
+		panic(err)
+	}
 	CacheTopicStatsWorker()
 }
 

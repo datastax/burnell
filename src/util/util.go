@@ -145,3 +145,23 @@ func BytesToMegaBytesFloor(bytes int64) int64 {
 	}
 	return 1
 }
+
+// ConditionAssign is an one line assign value based on condition
+func ConditionAssign(condition bool, trueValue, falseValue string) string {
+	if condition {
+		return trueValue
+	}
+	return falseValue
+}
+
+// PartitionPrefix is the prefix for partition topics
+const PartitionPrefix = "partition-"
+
+// ParsePartitionTopicName parses topic full name to the one Pulsar regonizes
+// returns a topic full name and boolean value indicate whether it is a partition topic
+func ParsePartitionTopicName(topic string) (string, bool) {
+	if strings.HasPrefix(topic, PartitionPrefix) {
+		return strings.Replace(topic, PartitionPrefix, "", 1), true
+	}
+	return topic, false
+}

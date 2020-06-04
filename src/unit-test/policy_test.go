@@ -33,3 +33,24 @@ func TestFeatureCodeMap(t *testing.T) {
 	errNil(t, err)
 	assert(t, len(FeatureCodeMap) == len(KafkaesqueFeatureCodes), "featureCodeMap matches the size of KafkaesqueFeatureCodes")
 }
+
+func TestIsPArtitionTopic(t *testing.T) {
+	name, is := IsPartitionTopic("persistent://ming-luo/local-useast1-gcp/partition-topic2-partition-0")
+	fmt.Printf("name is %s", name)
+	assert(t, name == "persistent://ming-luo/local-useast1-gcp/partition-topic2", "")
+	assert(t, is, "")
+
+	name, is = IsPartitionTopic("persistent://ming-luo/local-useast1-gcp/partitioned-topic2-partition-9")
+	fmt.Printf("name is %s", name)
+	assert(t, name == "persistent://ming-luo/local-useast1-gcp/partitioned-topic2", "")
+	assert(t, is, "")
+
+	name, is = IsPartitionTopic("persistent://ming-luo/local-useast1-gcp/partition-topic2-partition-19")
+	assert(t, name == "persistent://ming-luo/local-useast1-gcp/partition-topic2", "")
+	assert(t, is, "")
+
+	_, is = IsPartitionTopic("persistent://ming-luo/local-useast1-gcp/partition-topic2-partitio-19")
+	assert(t, !is, "")
+	_, is = IsPartitionTopic("persistent://ming-luo/local-useast1-gcp/partition-topic2-partition-1o9")
+	assert(t, !is, "")
+}

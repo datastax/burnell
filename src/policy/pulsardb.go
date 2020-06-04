@@ -300,7 +300,7 @@ func (s *TenantPolicyHandler) EvaluateTopicLimit(tenant string) (bool, error) {
 		return false, fmt.Errorf("unable to find tenant %s in the plan policy database", tenant)
 	}
 
-	counts := CountTopics(tenant)
+	_, counts := CountTopics(tenant)
 	if counts < 0 {
 		return false, fmt.Errorf("unable to find tenant %s in the topic listener database", tenant)
 	}

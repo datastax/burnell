@@ -16,6 +16,29 @@ func TestGetEnvInt(t *testing.T) {
 	assert(t, GetEnvInt("Bogus2", 546) == 546, "")
 }
 
+func TestConditionAssign(t *testing.T) {
+	assert(t, ConditionAssign(true, "testme", "test2") == "testme", "")
+	assert(t, ConditionAssign(false, "testme", "test2") == "test2", "")
+}
+
+func TestPartitionTopicPrefix(t *testing.T) {
+	name, isPartitionTopic := ParsePartitionTopicName("partition-persistent://tenant/ns/topic")
+	assert(t, name == "persistent://tenant/ns/topic", "")
+	assert(t, isPartitionTopic, "")
+
+	name, isPartitionTopic = ParsePartitionTopicName("partition-persistent://tenant/ns/topic-partition")
+	assert(t, name == "persistent://tenant/ns/topic-partition", "")
+	assert(t, isPartitionTopic, "")
+
+	name, isPartitionTopic = ParsePartitionTopicName("persistent://tenant/ns/topic-partition")
+	assert(t, name == "persistent://tenant/ns/topic-partition", "")
+	assert(t, !isPartitionTopic, "")
+
+	name, isPartitionTopic = ParsePartitionTopicName("partition-non-persistent://tenant/ns/topic-partition")
+	assert(t, name == "non-persistent://tenant/ns/topic-partition", "")
+	assert(t, isPartitionTopic, "")
+}
+
 func TestExtractPartsFromTopicFn(t *testing.T) {
 	tn, ns, topic, err := ExtractPartsFromTopicFn("persistent://tenant-ab/namespace2/topic789")
 	errNil(t, err)

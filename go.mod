@@ -17,7 +17,6 @@ require (
 	github.com/pierrec/lz4 v2.0.5+incompatible
 	github.com/pkg/errors v0.8.1
 	github.com/prometheus/client_golang v1.4.1
-	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.10.0
 	github.com/rs/cors v1.7.0
 	github.com/samuel/go-zookeeper v0.0.0-20190923202752-2cc03de413da

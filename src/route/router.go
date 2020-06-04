@@ -53,6 +53,10 @@ func NewRouter() *mux.Router {
 	router.Path("/function-logs/{tenant}/{namespace}/{function}/{instance}").Methods(http.MethodGet).Name("function-logs").
 		Handler(AuthVerifyTenantJWT(http.HandlerFunc(FunctionLogsHandler)))
 
+	// aggregated topics under namespaces
+	router.Path("/admin/v2/topics/{tenant}").Methods(http.MethodGet).Name("topics-grouped-by-namespaces").
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(GroupTopicsByNamespaceHandler)))
+
 	// Pulsar Admin REST API proxy
 	//
 	// /bookies/

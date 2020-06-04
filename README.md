@@ -21,7 +21,10 @@ It is a rolling log retrieval from the function worker.
 By default, the endpoint will return the last few lines of the latest log.
 ```
 /function-logs/{tenant}/{namespace}/{function-name}
+/function-logs/{tenant}/{namespace}/{function-name}/{instance}
 ```
+Default instance is 0 if not specified.
+
 Example -
 ```
 /function-logs/ming-luo/namespace2/for-monitor-function
@@ -46,11 +49,18 @@ Since the algorithm always returns a few complete logs, the payload size can var
 ### Tenant topics statistics collector
 
 #### Topic stats endpoint
+METHOD: GET
 ```
 /stats/topics/{tenant}?limit=10&offset=0
 ```
+A list of required topics can be specified in the request body. This feature is useful since this endpoint usually retreives topics from a local cache that has 5 seconds polling interval, the mandatory list will directly query these topics against the broker admin REST endpoint.
 ```
 {"tenant":"ming-luo","sessionId":"reserverd for snapshot iteration","offset":1,"total":1,"data":{"persistent://ming-luo/namespace2/test-topic3":{"averageMsgSize":0,"backlogSize":0,"msgRateIn":0,"msgRateOut":0,"msgThroughputIn":0,"msgThroughputOut":0,"pendingAddEntriesCount":0,"producerCount":0,"publishers":[],"replication":{},"storageSize":0,"subscriptions":{"mysub":{"consumers":[],"msgBacklog":0,"msgRateExpired":0,"msgRateOut":0,"msgRateRedeliver":0,"msgThroughputOut":0,"numberOfEntriesSinceFirstNotAckedMessage":1,"totalNonContiguousDeletedMessagesRange":0,"type":"Exclusive"}}}}}
+```
+
+### Grouping topics under namespace per tenant
+```
+/admin/v2/topics/{tenant}
 ```
 
 ### Tenant and namespace level usage metering
