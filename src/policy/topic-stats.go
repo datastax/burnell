@@ -124,13 +124,20 @@ func GetBrokers() []string {
 	newRequest.Header.Add("Authorization", "Bearer "+util.Config.PulsarToken)
 	client := &http.Client{}
 	response, err := client.Do(newRequest)
+	if response != nil {
+		defer response.Body.Close()
+	}
 	if err != nil {
 		statsLog.Errorf("GET brokers %s error %v", requestBrokersURL, err)
 		return []string{}
 	}
 
+	if response.StatusCode != http.StatusOK {
+		statsLog.Errorf("GET brokers %s response status code %d", requestBrokersURL, response.StatusCode)
+		return []string{}
+	}
+
 	body, err := ioutil.ReadAll(response.Body)
-	defer response.Body.Close()
 	if err != nil {
 		statsLog.Errorf("GET brokers %s read response body error %v", requestBrokersURL, err)
 		return []string{}
@@ -168,13 +175,20 @@ func brokerStatsTopicsQuery(urlString string) error {
 	newRequest.Header.Add("Authorization", "Bearer "+util.Config.PulsarToken)
 	client := &http.Client{}
 	response, err := client.Do(newRequest)
+	if response != nil {
+		defer response.Body.Close()
+	}
 	if err != nil {
 		statsLog.Errorf("make http request %s error %v", topicStatsURL, err)
 		return err
 	}
 
+	if response.StatusCode != http.StatusOK {
+		statsLog.Errorf("GET broker topic stats %s response status code %d", topicStatsURL, response.StatusCode)
+		return err
+	}
+
 	body, err := ioutil.ReadAll(response.Body)
-	defer response.Body.Close()
 	if err != nil {
 		statsLog.Errorf("GET broker topic stats request %s error %v", topicStatsURL, err)
 		return err
@@ -189,6 +203,10 @@ func brokerStatsTopicsQuery(urlString string) error {
 
 	// key is tenant, value is partition topic name
 	var partitionTopicNames = make(map[string]string)
+
+	var namespaces = make(map[string]bool)
+	var namespaceTopics []string
+	var allTopics = make(map[string]bool)
 
 	for k, v := range result {
 		tenant := strings.Split(k, "/")[0]
@@ -210,12 +228,50 @@ func brokerStatsTopicsQuery(urlString string) error {
 					if partitionName, isPartitionTopic := IsPartitionTopic(topicFn); isPartitionTopic {
 						partitionTopicNames[tenant] = partitionName
 					}
+					if parts := strings.Split(k, "/"); len(parts) == 2 && parts[0] != "public" {
+						namespaces[k] = util.IsPersistentTopic(topicFn)
+					}
+					allTopics[topicFn] = true
 
 					txn := topicStatsDB.Txn(true)
 					txn.Insert(topicStatsDBTable, &topicInfo)
 					txn.Commit()
 				}
 			}
+		}
+	}
+
+	for ns, isPartitioned := range namespaces {
+		if topics, err := getTopicsFromNamespace(ns, isPartitioned); err == nil {
+			namespaceTopics = append(namespaceTopics, topics...)
+		}
+	}
+
+	var missingTopics []string
+	for _, tn := range namespaceTopics {
+		if _, ok := allTopics[tn]; !ok {
+			missingTopics = append(missingTopics, tn)
+		}
+	}
+
+	for _, tName := range missingTopics {
+		if data, err := getSingleTopicStats(tName, false); err == nil {
+			var ns string
+			tenant, namespace, _, err := util.ExtractPartsFromTopicFn(tName)
+			if err == nil {
+				ns = tenant + "/" + namespace
+			}
+			topicInfo := TopicStats{
+				ID:        tName,
+				Tenant:    tenant,
+				Namespace: ns,
+				UpdatedAt: time.Now(),
+				Data:      data,
+			}
+
+			txn := topicStatsDB.Txn(true)
+			txn.Insert(topicStatsDBTable, &topicInfo)
+			txn.Commit()
 		}
 	}
 
@@ -239,6 +295,45 @@ func brokerStatsTopicsQuery(urlString string) error {
 	return nil
 }
 
+func getTopicsFromNamespace(path string, isPersistent bool) ([]string, error) {
+	paths := "admin/v2/persistent/" + path
+	if !isPersistent {
+		paths = "admin/v2/non-persistent/" + path
+	}
+	requestBrokersURL := util.SingleJoinSlash(util.Config.BrokerProxyURL, paths)
+	newRequest, err := http.NewRequest(http.MethodGet, requestBrokersURL, nil)
+	if err != nil {
+		statsLog.Errorf("make http request a single topic stats %s error %v", requestBrokersURL, err)
+		return nil, err
+	}
+	newRequest.Header.Add("Authorization", "Bearer "+util.Config.PulsarToken)
+	client := &http.Client{}
+	response, err := client.Do(newRequest)
+	if response != nil {
+		defer response.Body.Close()
+	}
+	if err != nil {
+		statsLog.Errorf("GET topics under namespace %s error %v", requestBrokersURL, err)
+		return nil, err
+	}
+
+	if response.StatusCode != http.StatusOK {
+		statsLog.Errorf("GET topics under namespace %s response status code %d", requestBrokersURL, response.StatusCode)
+		return nil, fmt.Errorf("GET topics under namesapce response status code %d", response.StatusCode)
+	}
+	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		statsLog.Errorf("GET topics under namespace %s read response body error %v", requestBrokersURL, err)
+		return nil, err
+	}
+	var topics []string
+	if err = json.Unmarshal(body, &topics); err != nil {
+		statsLog.Errorf("GET topics under namespace %s unmarshal response body error %v", requestBrokersURL, err)
+		return nil, err
+	}
+	return topics, nil
+}
+
 // getSingleTopicStats gets aggregated partition topic stats
 func getSingleTopicStats(topicFullname string, isPartitionTopic bool) (interface{}, error) {
 	tenant, ns, topic, err := util.ExtractPartsFromTopicFn(topicFullname)
@@ -250,6 +345,24 @@ func getSingleTopicStats(topicFullname string, isPartitionTopic bool) (interface
 	paths := "admin/v2/" + topicType + tenant + "/" + ns + "/" + topic + statsRoute
 
 	requestBrokersURL := util.SingleJoinSlash(util.Config.BrokerProxyURL, paths)
+
+	client := *http.DefaultClient
+	// keep authorization header for the redirect
+	client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		if len(via) >= 10 {
+			return fmt.Errorf("too many redirects")
+		}
+		if len(via) == 0 {
+			return nil
+		}
+		for attr, val := range via[0].Header {
+			if _, ok := req.Header[attr]; !ok {
+				req.Header[attr] = val
+			}
+		}
+		return nil
+	}
+
 	// Update the headers to allow for SSL redirection
 	newRequest, err := http.NewRequest(http.MethodGet, requestBrokersURL, nil)
 	if err != nil {
@@ -257,8 +370,10 @@ func getSingleTopicStats(topicFullname string, isPartitionTopic bool) (interface
 		return nil, err
 	}
 	newRequest.Header.Add("Authorization", "Bearer "+util.Config.PulsarToken)
-	client := &http.Client{}
 	response, err := client.Do(newRequest)
+	if response != nil {
+		defer response.Body.Close()
+	}
 	if err != nil {
 		statsLog.Errorf("GET a single topic stats %s error %v", requestBrokersURL, err)
 		return nil, err
@@ -268,12 +383,13 @@ func getSingleTopicStats(topicFullname string, isPartitionTopic bool) (interface
 		statsLog.Errorf("GET a single topic stats %s response status code %d", requestBrokersURL, response.StatusCode)
 		return nil, fmt.Errorf("GET a single topic stats response status code %d", response.StatusCode)
 	}
+
 	body, err := ioutil.ReadAll(response.Body)
-	defer response.Body.Close()
 	if err != nil {
 		statsLog.Errorf("GET a single topic stats %s read response body error %v", requestBrokersURL, err)
 		return nil, err
 	}
+
 	var topicStats interface{}
 	if err = json.Unmarshal(body, &topicStats); err != nil {
 		statsLog.Errorf("GET a single topic stats %s unmarshal response body error %v", requestBrokersURL, err)
@@ -441,14 +557,22 @@ func brokerStatsQuery(urlString, subRoute string, respChan chan BrokerStats) {
 	newRequest.Header.Add("Authorization", "Bearer "+util.Config.PulsarToken)
 	client := &http.Client{}
 	response, err := client.Do(newRequest)
+	if response != nil {
+		defer response.Body.Close()
+	}
 	if err != nil {
-		statsLog.Errorf("make http request %s error %v", brokerStatsURL, err)
+		statsLog.Errorf("GET broker topic stats make http request %s error %v", brokerStatsURL, err)
+		respChan <- brokerStats
+		return
+	}
+
+	if response.StatusCode != http.StatusOK {
+		statsLog.Errorf("GET broker topic stats %s response status code %d", brokerStatsURL, response.StatusCode)
 		respChan <- brokerStats
 		return
 	}
 
 	body, err := ioutil.ReadAll(response.Body)
-	defer response.Body.Close()
 	if err != nil {
 		statsLog.Errorf("GET broker topic stats request %s error %v", brokerStatsURL, err)
 		respChan <- brokerStats

@@ -157,6 +157,8 @@ func ConditionAssign(condition bool, trueValue, falseValue string) string {
 // PartitionPrefix is the prefix for partition topics
 const PartitionPrefix = "partition-"
 
+const persistentPrefix = "persistent://"
+
 // ParsePartitionTopicName parses topic full name to the one Pulsar regonizes
 // returns a topic full name and boolean value indicate whether it is a partition topic
 func ParsePartitionTopicName(topic string) (string, bool) {
@@ -164,4 +166,9 @@ func ParsePartitionTopicName(topic string) (string, bool) {
 		return strings.Replace(topic, PartitionPrefix, "", 1), true
 	}
 	return topic, false
+}
+
+// IsPersistentTopic returns if the topic is a persistent topic
+func IsPersistentTopic(topic string) bool {
+	return strings.HasPrefix(topic, persistentPrefix)
 }

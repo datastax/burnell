@@ -332,13 +332,15 @@ func AdminAPIGETRespStringArray(subroute string) ([]string, error) {
 	newRequest.Header.Add("Authorization", "Bearer "+util.Config.PulsarToken)
 	client := &http.Client{}
 	response, err := client.Do(newRequest)
+	if response != nil {
+		defer response.Body.Close()
+	}
 	if err != nil {
 		log.Errorf("GET request url %s error %v", requestURL, err)
 		return empty, err
 	}
 
 	body, err := ioutil.ReadAll(response.Body)
-	defer response.Body.Close()
 	if err != nil {
 		log.Errorf("GET request url %s read response body error %v", requestURL, err)
 		return empty, err

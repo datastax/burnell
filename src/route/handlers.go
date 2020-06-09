@@ -143,6 +143,9 @@ func CachedProxyGETHandler(w http.ResponseWriter, r *http.Request) {
 	newRequest.Header.Add("Authorization", "Bearer "+util.Config.PulsarToken)
 	client := &http.Client{}
 	response, err := client.Do(newRequest)
+	if response != nil {
+		defer response.Body.Close()
+	}
 	if err != nil {
 		log.Errorf("%v", err)
 		util.ResponseErrorJSON(errors.New("proxy failure"), w, http.StatusInternalServerError)
@@ -150,7 +153,6 @@ func CachedProxyGETHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	body, err := ioutil.ReadAll(response.Body)
-	response.Body.Close()
 	if err != nil {
 		util.ResponseErrorJSON(errors.New("failed to read proxy response body"), w, http.StatusInternalServerError)
 		return

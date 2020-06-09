@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	. "github.com/kafkaesque-io/burnell/src/policy"
+	"github.com/kafkaesque-io/burnell/src/util"
 )
 
 func TestFeatureCodes(t *testing.T) {
@@ -34,7 +35,7 @@ func TestFeatureCodeMap(t *testing.T) {
 	assert(t, len(FeatureCodeMap) == len(KafkaesqueFeatureCodes), "featureCodeMap matches the size of KafkaesqueFeatureCodes")
 }
 
-func TestIsPArtitionTopic(t *testing.T) {
+func TestIsPartitionTopic(t *testing.T) {
 	name, is := IsPartitionTopic("persistent://ming-luo/local-useast1-gcp/partition-topic2-partition-0")
 	fmt.Printf("name is %s", name)
 	assert(t, name == "persistent://ming-luo/local-useast1-gcp/partition-topic2", "")
@@ -53,4 +54,7 @@ func TestIsPArtitionTopic(t *testing.T) {
 	assert(t, !is, "")
 	_, is = IsPartitionTopic("persistent://ming-luo/local-useast1-gcp/partition-topic2-partition-1o9")
 	assert(t, !is, "")
+
+	assert(t, util.IsPersistentTopic("persistent://ming-luo/local-useast1-gcp/partition-topic2-partition-1o9"), "")
+	assert(t, !util.IsPersistentTopic("non-persistent://ming-luo/local-useast1-gcp/partition-topic2"), "")
 }

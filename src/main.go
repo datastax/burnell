@@ -10,6 +10,7 @@ import (
 	"github.com/kafkaesque-io/burnell/src/policy"
 	"github.com/kafkaesque-io/burnell/src/route"
 	"github.com/kafkaesque-io/burnell/src/util"
+	httptls "github.com/kafkaesque-io/pulsar-beam/src/util"
 )
 
 func main() {
@@ -33,6 +34,6 @@ func main() {
 	certFile := util.GetConfig().CertFile
 	keyFile := util.GetConfig().KeyFile
 	port := util.AssignString(config.PORT, "8080")
-	log.Fatal(route.ListenAndServeTLS(":"+port, certFile, keyFile, handler))
+	log.Fatal(httptls.ListenAndServeTLS(":"+port, certFile, keyFile, handler))
 
 }
