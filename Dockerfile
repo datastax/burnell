@@ -4,10 +4,14 @@
 FROM golang:alpine AS builder
 
 # Add Maintainer Info
-LABEL maintainer="kafkaesque.io"
+LABEL maintainer="kesque"
 LABEL stage=build
 
 RUN apk --no-cache add build-base git
+
+# Build Delve
+RUN go get github.com/google/gops
+
 WORKDIR /root/
 ADD . /root
 RUN cd /root/src && go build -o burnell
@@ -23,6 +27,9 @@ RUN mkdir /root/config/
 COPY --from=builder /root/src/burnell /root/bin
 COPY --from=builder /root/config/burnell.yml /root/config/burnell.yml
 COPY --from=builder /root/src/unit-test/example_p* /root/config/
+
+# Copy debug tools
+COPY --from=builder /go/bin/gops /root/bin
 
 # Command to run the executable
 ENTRYPOINT ["./burnell"]

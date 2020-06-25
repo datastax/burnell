@@ -403,9 +403,10 @@ func CacheTopicStatsWorker() {
 	interval := time.Duration(util.GetEnvInt("StatsPullIntervalSecond", 5)) * time.Second
 	go func() {
 		brokersStatsTopicQuery()
+		ticker := time.NewTicker(interval)
 		for {
 			select {
-			case <-time.Tick(interval):
+			case <-ticker.C:
 				brokersStatsTopicQuery()
 			}
 		}
@@ -519,6 +520,7 @@ func AggregateBrokersStats(subRoute string, offset, limit int) (BrokersStats, in
 		go brokerStatsQuery(broker, subRoute, resultChan)
 	}
 
+	ticker := time.NewTicker(BrokerTimeoutSecond)
 	for {
 		select {
 		case result := <-resultChan:
@@ -527,7 +529,7 @@ func AggregateBrokersStats(subRoute string, offset, limit int) (BrokersStats, in
 				resp.Data = brokerStats
 				return resp, http.StatusOK, nil
 			}
-		case <-time.Tick(BrokerTimeoutSecond):
+		case <-ticker.C:
 			statsLog.Errorf("timeout on brokers stats response")
 			resp.Data = brokerStats
 			return resp, http.StatusInternalServerError, fmt.Errorf("broker stats time out by server")

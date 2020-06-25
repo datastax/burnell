@@ -92,9 +92,10 @@ func Init() {
 	if url != "" {
 		go func(promURL string) {
 			Scrape(promURL)
+			ticker := time.NewTicker(interval)
 			for {
 				select {
-				case <-time.Tick(interval):
+				case <-ticker.C:
 					Scrape(promURL)
 				}
 			}
@@ -103,9 +104,10 @@ func Init() {
 		go func() {
 			InitUsageDbTable()
 			logger.Infof("Build tenant usage")
+			ticker := time.NewTicker(120 * time.Second)
 			for {
 				select {
-				case <-time.Tick(120 * time.Second):
+				case <-ticker.C:
 					BuildTenantUsage()
 				}
 			}

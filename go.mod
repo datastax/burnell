@@ -9,9 +9,10 @@ require (
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/ghodss/yaml v1.0.0
 	github.com/golang/protobuf v1.4.0-rc.4
+	github.com/google/gops v0.3.10
 	github.com/gorilla/mux v1.7.3
 	github.com/hashicorp/go-memdb v1.2.1
-	github.com/kafkaesque-io/pulsar-beam v0.0.2-0.20200605205133-c24c0e4e40d7
+	github.com/kafkaesque-io/pulsar-beam v0.0.2-0.20200625184507-0224e63558e6
 	github.com/klauspost/compress v1.9.2
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/pierrec/lz4 v2.0.5+incompatible

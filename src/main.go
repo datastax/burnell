@@ -2,7 +2,9 @@ package main
 
 import (
 	"log"
+	"runtime"
 
+	"github.com/google/gops/agent"
 	"github.com/rs/cors"
 
 	"github.com/kafkaesque-io/burnell/src/logclient"
@@ -14,6 +16,15 @@ import (
 )
 
 func main() {
+	// runtime.GOMAXPROCS does not the container's CPU quota in Kubernetes
+	// therefore, it requires to be set explicitly
+	runtime.GOMAXPROCS(util.GetEnvInt("GOMAXPROCS", 1))
+
+	// gops debug instrument
+	if err := agent.Listen(agent.Options{}); err != nil {
+		log.Fatalf("gops instrument error %v", err)
+	}
+
 	util.Init()
 	route.Init()
 	metrics.Init()
