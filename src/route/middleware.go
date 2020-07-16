@@ -43,7 +43,7 @@ func AuthVerifyTenantJWT(next http.Handler) http.Handler {
 			return
 		}
 
-		log.Infof("Authenticated with subjects %s", subjects)
+		log.Infof("Authenticated with subjects %s to match tenant", subjects)
 		r.Header.Set(injectedSubs, subjects)
 		vars := mux.Vars(r)
 		if tenantName, ok := vars["tenant"]; ok {
@@ -51,6 +51,7 @@ func AuthVerifyTenantJWT(next http.Handler) http.Handler {
 				next.ServeHTTP(w, r)
 				return
 			}
+			log.Errorf("Authenticated subjects %s does not match tenant %s", subjects, tenantName)
 		}
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return

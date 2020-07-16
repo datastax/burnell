@@ -104,6 +104,26 @@ func DirectBrokerProxyHandler(w http.ResponseWriter, r *http.Request) {
 
 // DirectFunctionProxyHandler - Pulsar function admin REST API
 func DirectFunctionProxyHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Del("Content-Type") // remove middle set content-type because the proxy will set too
+	if r.Method != http.MethodGet && r.Method != http.MethodDelete {
+		subject := r.Header.Get("injectedSubs")
+		if subject == "" {
+			http.Error(w, "missing subject", http.StatusUnauthorized)
+			return
+		}
+		_, role := ExtractTenant(subject)
+		isSuperUser := util.StrContains(util.SuperRoles, role)
+		vars := mux.Vars(r)
+		if tenant, ok := vars["tenant"]; ok {
+			limit := policy.TenantManager.GetFunctionsLimit(tenant)
+			log.Infof("tenant %s with function limit %d, actual counts %d, is superuser %v", tenant, logclient.TenantFunctionCount(tenant), limit, isSuperUser)
+			if logclient.TenantFunctionCount(tenant) >= limit && !isSuperUser {
+				http.Error(w, "over the number of function limit under the current plan, please upgrade your plan", http.StatusPaymentRequired)
+				return
+			}
+		}
+	}
+
 	proxy := httputil.NewSingleHostReverseProxy(util.FunctionProxyURL)
 	updateProxyRequest(r, util.FunctionProxyURL)
 	proxy.ServeHTTP(w, r)

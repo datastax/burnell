@@ -61,11 +61,6 @@ type liveSignal struct{}
 var functionMap = make(map[string]FunctionType)
 var fnMpLock = sync.RWMutex{}
 
-// Track the number of functions used by each tenant
-// I could use the above functionMap as double map but complexity may not be justified
-var tenantFunctionCounter = make(map[string]int)
-var tenantFnCounterLock = sync.RWMutex{}
-
 // ReadFunctionMap reads a thread safe map
 func ReadFunctionMap(key string) (FunctionType, bool) {
 	fnMpLock.RLock()
@@ -92,41 +87,16 @@ func DeleteFunctionMap(key string) bool {
 	return false
 }
 
-// IncrTenantFunc increases the number functions by 1
-func IncrTenantFunc(tenant string) int {
-	tenantFnCounterLock.Lock()
-	defer tenantFnCounterLock.Unlock()
-	if num, ok := tenantFunctionCounter[tenant]; ok {
-		tenantFunctionCounter[tenant] = num + 1
-		return num
-	}
-	tenantFunctionCounter[tenant] = 1
-	return 1
-
-}
-
-// DecrTenantFunc decreases the number functions by 1
-func DecrTenantFunc(tenant string) int {
-	tenantFnCounterLock.Lock()
-	defer tenantFnCounterLock.Unlock()
-	if num, ok := tenantFunctionCounter[tenant]; ok {
-		if num > 1 {
-			tenantFunctionCounter[tenant] = num - 1
-			return num - 1
-		}
-		delete(tenantFunctionCounter, tenant)
-	}
-	return 0
-}
-
 // TenantFunctionCount returns the number of functions under the tenant
 func TenantFunctionCount(tenant string) int {
-	tenantFnCounterLock.RLock()
-	defer tenantFnCounterLock.RUnlock()
-	if num, ok := tenantFunctionCounter[tenant]; ok {
-		return num
+	counter := 0
+	for _, v := range functionMap {
+		if v.Tenant == tenant {
+			counter++
+		}
+
 	}
-	return 0
+	return counter
 }
 
 // ReaderLoop continuously reads messages from function metadata topic
@@ -196,10 +166,8 @@ func ReaderLoop(sig chan *liveSignal) {
 func ParseServiceRequest(sr *pb.FunctionMetaData, workerID string, serviceType pb.ServiceRequest_ServiceRequestType) {
 	fd := sr.FunctionDetails
 	key := fd.GetTenant() + fd.GetNamespace() + fd.GetName()
-	tenant := fd.GetTenant()
 	if serviceType == pb.ServiceRequest_DELETE {
 		DeleteFunctionMap(key)
-		DecrTenantFunc(tenant)
 	} else {
 		f := FunctionType{
 			Tenant:           fd.GetTenant(),
@@ -219,7 +187,6 @@ func ParseServiceRequest(sr *pb.FunctionMetaData, workerID string, serviceType p
 			f.InputTopics = append(f.InputTopics, fd.Source.TopicsPattern)
 		}
 		WriteFunctionMap(key, f)
-		IncrTenantFunc(tenant)
 	}
 }
 

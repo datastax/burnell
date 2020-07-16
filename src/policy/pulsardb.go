@@ -319,6 +319,16 @@ func (s *TenantPolicyHandler) IsFreeStarterPlan(tenant string) bool {
 	return t.PlanType == FreeTier || t.PlanType == StarterTier || t.PlanType == ""
 }
 
+// GetFunctionsLimit gets the max number of functions the plan supports
+func (s *TenantPolicyHandler) GetFunctionsLimit(tenant string) int {
+	s.tenantsLock.RLock()
+	defer s.tenantsLock.RUnlock()
+	if t, ok := s.tenants[tenant]; ok {
+		return t.Policy.Functions
+	}
+	return getPlanPolicy(FreeTier).Functions
+}
+
 // AdminAPIGETRespStringArray is a template tenant call that returns an array of string
 func AdminAPIGETRespStringArray(subroute string) ([]string, error) {
 	requestURL := util.SingleJoinSlash(util.Config.BrokerProxyURL, subroute)
