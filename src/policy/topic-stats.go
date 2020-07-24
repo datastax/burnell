@@ -153,125 +153,14 @@ func GetBrokers() []string {
 func brokersStatsTopicQuery() {
 	brokers := GetBrokers()
 	// brokers = []string{util.Config.ProxyURL, util.Config.ProxyURL, util.Config.ProxyURL}
-	for _, v := range brokers {
-		brokerStatsTopicsQuery(v)
-	}
-}
-
-func brokerStatsTopicsQuery(urlString string) error {
-	if !strings.HasPrefix(urlString, "http") {
-		urlString = "http://" + urlString
-	}
-	topicStatsURL := util.SingleJoinSlash(urlString, "admin/v2/broker-stats/topics")
-	statsLog.Debugf(" proxy request route is %s\n", topicStatsURL)
-
-	// Update the headers to allow for SSL redirection
-	newRequest, err := http.NewRequest(http.MethodGet, topicStatsURL, nil)
-	if err != nil {
-		statsLog.Errorf("make http request %s error %v", topicStatsURL, err)
-		return err
-	}
-	newRequest.Header.Add("user-agent", "burnell")
-	newRequest.Header.Add("Authorization", "Bearer "+util.Config.PulsarToken)
-	client := &http.Client{}
-	response, err := client.Do(newRequest)
-	if response != nil {
-		defer response.Body.Close()
-	}
-	if err != nil {
-		statsLog.Errorf("make http request %s error %v", topicStatsURL, err)
-		return err
-	}
-
-	if response.StatusCode != http.StatusOK {
-		statsLog.Errorf("GET broker topic stats %s response status code %d", topicStatsURL, response.StatusCode)
-		return err
-	}
-
-	body, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		statsLog.Errorf("GET broker topic stats request %s error %v", topicStatsURL, err)
-		return err
-	}
-
-	// tenant's namespace/bundle hash/persistent/topicFullName
-	var result map[string]map[string]map[string]map[string]interface{}
-	if err = json.Unmarshal(body, &result); err != nil {
-		statsLog.Errorf("GET broker topic stats request %s unmarshal error %v", topicStatsURL, err)
-		return err
-	}
 
 	// key is tenant, value is partition topic name
 	var partitionTopicNames = make(map[string]string)
-
-	var namespaces = make(map[string]bool)
-	var namespaceTopics []string
-	var allTopics = make(map[string]bool)
-
-	for k, v := range result {
-		tenant := strings.Split(k, "/")[0]
-		statsLog.Debugf("namespace %s tenant %s", k, tenant)
-
-		for bundleKey, v2 := range v {
-			statsLog.Debugf("  bundle %s", bundleKey)
-			for persistentKey, v3 := range v2 {
-				statsLog.Debugf("    %s key", persistentKey)
-				for topicFn, v4 := range v3 {
-					statsLog.Debugf("      topic name %s", topicFn)
-					topicInfo := TopicStats{
-						ID:        topicFn,
-						Tenant:    tenant,
-						Namespace: k,
-						UpdatedAt: time.Now(),
-						Data:      v4,
-					}
-					if partitionName, isPartitionTopic := IsPartitionTopic(topicFn); isPartitionTopic {
-						partitionTopicNames[tenant] = partitionName
-					}
-					if parts := strings.Split(k, "/"); len(parts) == 2 && parts[0] != "public" {
-						namespaces[k] = util.IsPersistentTopic(topicFn)
-					}
-					allTopics[topicFn] = true
-
-					txn := topicStatsDB.Txn(true)
-					txn.Insert(topicStatsDBTable, &topicInfo)
-					txn.Commit()
-				}
+	for _, v := range brokers {
+		if topics, err := brokerStatsTopicsQuery(v); err == nil {
+			for k, v := range topics {
+				partitionTopicNames[k] = v
 			}
-		}
-	}
-
-	for ns, isPartitioned := range namespaces {
-		if topics, err := getTopicsFromNamespace(ns, isPartitioned); err == nil {
-			namespaceTopics = append(namespaceTopics, topics...)
-		}
-	}
-
-	var missingTopics []string
-	for _, tn := range namespaceTopics {
-		if _, ok := allTopics[tn]; !ok {
-			missingTopics = append(missingTopics, tn)
-		}
-	}
-
-	for _, tName := range missingTopics {
-		if data, err := getSingleTopicStats(tName, false); err == nil {
-			var ns string
-			tenant, namespace, _, err := util.ExtractPartsFromTopicFn(tName)
-			if err == nil {
-				ns = tenant + "/" + namespace
-			}
-			topicInfo := TopicStats{
-				ID:        tName,
-				Tenant:    tenant,
-				Namespace: ns,
-				UpdatedAt: time.Now(),
-				Data:      data,
-			}
-
-			txn := topicStatsDB.Txn(true)
-			txn.Insert(topicStatsDBTable, &topicInfo)
-			txn.Commit()
 		}
 	}
 
@@ -292,7 +181,105 @@ func brokerStatsTopicsQuery(urlString string) error {
 		}
 	}
 
-	return nil
+}
+
+// brokerStatsTopicsQuery returns a map of tenant and topic full name, and error of this operation
+func brokerStatsTopicsQuery(urlString string) (map[string]string, error) {
+	// key is tenant, value is partition topic name
+	var partitionTopicNames = make(map[string]string)
+
+	if !strings.HasPrefix(urlString, "http") {
+		urlString = "http://" + urlString
+	}
+	topicStatsURL := util.SingleJoinSlash(urlString, "admin/v2/broker-stats/topics")
+	statsLog.Debugf(" proxy request route is %s\n", topicStatsURL)
+
+	// Update the headers to allow for SSL redirection
+	newRequest, err := http.NewRequest(http.MethodGet, topicStatsURL, nil)
+	if err != nil {
+		statsLog.Errorf("make http request %s error %v", topicStatsURL, err)
+		return partitionTopicNames, err
+	}
+	newRequest.Header.Add("user-agent", "burnell")
+	newRequest.Header.Add("Authorization", "Bearer "+util.Config.PulsarToken)
+	client := &http.Client{}
+	response, err := client.Do(newRequest)
+	if response != nil {
+		defer response.Body.Close()
+	}
+	if err != nil {
+		statsLog.Errorf("make http request %s error %v", topicStatsURL, err)
+		return partitionTopicNames, err
+	}
+
+	if response.StatusCode != http.StatusOK {
+		statsLog.Errorf("GET broker topic stats %s response status code %d", topicStatsURL, response.StatusCode)
+		return partitionTopicNames, err
+	}
+
+	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		statsLog.Errorf("GET broker topic stats request %s error %v", topicStatsURL, err)
+		return partitionTopicNames, err
+	}
+
+	// tenant's namespace/bundle hash/persistent/topicFullName
+	var result map[string]map[string]map[string]map[string]interface{}
+	if err = json.Unmarshal(body, &result); err != nil {
+		statsLog.Errorf("GET broker topic stats request %s unmarshal error %v", topicStatsURL, err)
+		return partitionTopicNames, err
+	}
+
+	for k, v := range result {
+		tenant := strings.Split(k, "/")[0]
+		statsLog.Debugf("namespace %s tenant %s", k, tenant)
+
+		for bundleKey, v2 := range v {
+			statsLog.Debugf("  bundle %s", bundleKey)
+			for persistentKey, v3 := range v2 {
+				statsLog.Debugf("    %s key", persistentKey)
+				for topicFn, v4 := range v3 {
+					// statsLog.Debugf("      topic name %s", topicFn)
+					topicInfo := TopicStats{
+						ID:        topicFn,
+						Tenant:    tenant,
+						Namespace: k,
+						UpdatedAt: time.Now(),
+						Data:      v4,
+					}
+					if partitionName, isPartitionTopic := IsPartitionTopic(topicFn); isPartitionTopic {
+						partitionTopicNames[tenant] = partitionName
+					}
+					// if parts := strings.Split(k, "/"); len(parts) == 2 && parts[0] != "public" {
+					//	namespaces[k] = util.IsPersistentTopic(topicFn)
+					//}
+
+					txn := topicStatsDB.Txn(true)
+					txn.Insert(topicStatsDBTable, &topicInfo)
+					txn.Commit()
+				}
+			}
+		}
+	}
+
+	// make separate request for partition topic for aggrgated stats
+	for tenantKey, name := range partitionTopicNames {
+		if data, err := getSingleTopicStats(name, true); err == nil {
+			topicInfo := TopicStats{
+				ID:        util.PartitionPrefix + name,
+				Tenant:    tenantKey,
+				Namespace: "partition topics across namespaces",
+				UpdatedAt: time.Now(),
+				Data:      data,
+			}
+
+			txn := topicStatsDB.Txn(true)
+			txn.Insert(topicStatsDBTable, &topicInfo)
+			txn.Commit()
+		}
+	}
+
+	return partitionTopicNames, nil
 }
 
 func getTopicsFromNamespace(path string, isPersistent bool) ([]string, error) {
@@ -400,7 +387,7 @@ func getSingleTopicStats(topicFullname string, isPartitionTopic bool) (interface
 
 // CacheTopicStatsWorker is a thread to collect topic stats
 func CacheTopicStatsWorker() {
-	interval := time.Duration(util.GetEnvInt("StatsPullIntervalSecond", 5)) * time.Second
+	interval := time.Duration(util.GetEnvInt("StatsPullIntervalSecond", 9)) * time.Second
 	go func() {
 		brokersStatsTopicQuery()
 		ticker := time.NewTicker(interval)
@@ -593,6 +580,7 @@ func brokerStatsQuery(urlString, subRoute string, respChan chan BrokerStats) {
 }
 
 // IsPartitionTopic verifies if the topic is a partition topic.
+// it returns the master partition topic name.
 func IsPartitionTopic(name string) (string, bool) {
 	r := regexp.MustCompile(`^[a-z].*-partition-[0-9]{1,5}$`)
 	if r.MatchString(name) {

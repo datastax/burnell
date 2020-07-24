@@ -171,7 +171,7 @@ The new offset and total will be returned in the repsonse body.
 docker build -t burnell .
 ```
 
-docker tag kafkaesqueio/burnell:0.1.5
+docker tag kesque/burnell:1.1.0
 
 ### Docker for logcollector
 
