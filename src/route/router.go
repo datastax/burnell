@@ -197,18 +197,34 @@ func NewRouter() *mux.Router {
 	//
 	// /schemas
 	//
-	router.PathPrefix("/admin/v2/schemas").Methods(http.MethodGet, http.MethodPost, http.MethodDelete).
+	router.PathPrefix("/admin/v2/schemas/{tenant}/{namespace}/{topic}/compatibility").Methods(http.MethodPost).
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(CachedProxyHandler)))
+	router.PathPrefix("/admin/v2/schemas/{tenant}/{namespace}/{topic}/schema").Methods(http.MethodGet, http.MethodPost, http.MethodDelete).
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(CachedProxyHandler)))
+	router.PathPrefix("/admin/v2/schemas/{tenant}/{namespace}/{topic}/schema/{version}").Methods(http.MethodGet).
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(CachedProxyHandler)))
+	router.PathPrefix("/admin/v2/schemas/{tenant}/{namespace}/{topic}/schemas").Methods(http.MethodGet).
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(CachedProxyHandler)))
+	router.PathPrefix("/admin/v2/schemas/{tenant}/{namespace}/{topic}/version").Methods(http.MethodPost).
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(CachedProxyHandler)))
+		// catch all routes
+	router.PathPrefix("/admin/v2/schemas/{tenant}").Methods(http.MethodGet, http.MethodPost, http.MethodDelete).
 		Handler(AuthVerifyTenantJWT(http.HandlerFunc(CachedProxyHandler)))
 
 	//
 	// /tenants
 	//
-	router.PathPrefix("/admin/v2/tenants").Methods(http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete).
+	router.PathPrefix("/admin/v2/tenants/{tenant}").Methods(http.MethodGet).
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(CachedProxyHandler)))
+	router.PathPrefix("/admin/v2/tenants").Methods(http.MethodGet).
+		Handler(AuthVerifyJWT(http.HandlerFunc(RestrictedTenantsProxyHandler)))
+	router.PathPrefix("/admin/v2/tenants").Methods(http.MethodPost, http.MethodPut, http.MethodDelete).
 		Handler(SuperRoleRequired(http.HandlerFunc(CachedProxyHandler)))
 
 	//
 	// /functions including v2 for backward compatibility
 	//
+	// routes /admin/v3/functions/connectors is not supported by proxy 8443 either
 	router.PathPrefix("/admin/v3/functions/{tenant}").Methods(http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete).
 		Handler(AuthVerifyTenantJWT(http.HandlerFunc(DirectFunctionProxyHandler)))
 

@@ -64,6 +64,22 @@ func ReceiverHeader(h *http.Header) (token, topicFN, pulsarURL string, err bool)
 
 }
 
+// PreserveHeaderForRedirect preserves HTTP headers during HTTP redirect
+func PreserveHeaderForRedirect(req *http.Request, via []*http.Request) error {
+	if len(via) >= 10 {
+		return fmt.Errorf("too many redirects in GET CachedProxy")
+	}
+	if len(via) == 0 {
+		return nil
+	}
+	for attr, val := range via[0].Header {
+		if _, ok := req.Header[attr]; !ok {
+			req.Header[attr] = val
+		}
+	}
+	return nil
+}
+
 // AssignString returns the first non-empty string
 // It is equivalent the following in Javascript
 // var value = val0 || val1 || val2 || default

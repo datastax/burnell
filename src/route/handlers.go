@@ -129,6 +129,58 @@ func DirectFunctionProxyHandler(w http.ResponseWriter, r *http.Request) {
 	proxy.ServeHTTP(w, r)
 }
 
+// RestrictedTenantsProxyHandler filters tenants based on token subject
+func RestrictedTenantsProxyHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		util.ResponseErrorJSON(errors.New("only GET method allowed"), w, http.StatusMethodNotAllowed)
+		return
+	}
+
+	data, statusCode, err := cachedGetProxy(r)
+	if err != nil {
+		util.ResponseErrorJSON(err, w, statusCode)
+		return
+	}
+
+	subject := r.Header.Get("injectedSubs")
+	if subject == "" {
+		http.Error(w, "missing subject", http.StatusUnauthorized)
+		return
+	}
+	_, role := ExtractTenant(subject)
+	if util.StrContains(util.SuperRoles, role) {
+		w.Write(data)
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	log.Infof("subject role is %s", role)
+
+	// if superrole just return
+	var tenants []string
+	err = json.Unmarshal(data, &tenants)
+	if err != nil {
+		log.Errorf("unmarshal error %v", err)
+		util.ResponseErrorJSON(err, w, http.StatusInternalServerError)
+		return
+	}
+
+	for _, v := range tenants {
+		if strings.HasPrefix(subject, v) {
+			data, err := json.Marshal([]string{v})
+			if err != nil {
+				util.ResponseErrorJSON(errors.New("failed to build a list of tenants"), w, http.StatusInternalServerError)
+				return
+			}
+			w.Write(data)
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+	}
+
+	w.WriteHeader(http.StatusNotFound)
+	return
+}
+
 // CachedProxyHandler is
 func CachedProxyHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
@@ -140,12 +192,21 @@ func CachedProxyHandler(w http.ResponseWriter, r *http.Request) {
 
 // CachedProxyGETHandler is a http proxy handler with caching capability for GET method only.
 func CachedProxyGETHandler(w http.ResponseWriter, r *http.Request) {
+	data, statusCode, err := cachedGetProxy(r)
+	if err == nil {
+		w.Write(data)
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	util.ResponseErrorJSON(err, w, statusCode)
+	return
+}
+
+func cachedGetProxy(r *http.Request) ([]byte, int, error) {
 	key := HashKey(r.URL.Path + r.Header["Authorization"][0])
 	log.Infof("hash key is %s\n", key)
 	if entry, err := HTTPCache.Get(key); err == nil {
-		w.Write(entry)
-		w.WriteHeader(http.StatusOK)
-		return
+		return entry, http.StatusOK, nil
 	}
 	requestURL := util.SingleJoinSlash(util.Config.BrokerProxyURL, r.URL.RequestURI())
 	log.Infof("request route %s to proxy %v\n\tdestination url is %s", r.URL.RequestURI(), util.BrokerProxyURL, requestURL)
@@ -153,29 +214,30 @@ func CachedProxyGETHandler(w http.ResponseWriter, r *http.Request) {
 	// Update the headers to allow for SSL redirection
 	newRequest, err := http.NewRequest(http.MethodGet, requestURL, nil)
 	if err != nil {
-		util.ResponseErrorJSON(errors.New("failed to set proxy request"), w, http.StatusInternalServerError)
-		return
+		// util.ResponseErrorJSON(errors.New("failed to set proxy request"), w, http.StatusInternalServerError)
+		return nil, http.StatusInternalServerError, err
 	}
 	newRequest.Header.Add("X-Forwarded-Host", r.Header.Get("Host"))
 	newRequest.Header.Add("X-Proxy", "burnell")
 	//r.Host = util.ProxyURL.Host
 	//r.RequestURI = util.ProxyURL.RequestURI() + requestRoute
 	newRequest.Header.Add("Authorization", "Bearer "+util.Config.PulsarToken)
-	client := &http.Client{}
+
+	client := &http.Client{
+		CheckRedirect: util.PreserveHeaderForRedirect,
+	}
 	response, err := client.Do(newRequest)
 	if response != nil {
 		defer response.Body.Close()
 	}
 	if err != nil {
 		log.Errorf("%v", err)
-		util.ResponseErrorJSON(errors.New("proxy failure"), w, http.StatusInternalServerError)
-		return
+		return nil, http.StatusInternalServerError, errors.New("proxy failure")
 	}
 
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		util.ResponseErrorJSON(errors.New("failed to read proxy response body"), w, http.StatusInternalServerError)
-		return
+		return nil, http.StatusInternalServerError, errors.New("failed to read proxy response body")
 	}
 
 	err = HTTPCache.Set(key, body)
@@ -184,7 +246,7 @@ func CachedProxyGETHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Debugf("set in cache key is %s", key)
 
-	w.Write(body)
+	return body, http.StatusOK, nil
 }
 
 // NamespacePolicyProxyHandler - authorizes namespace proxy operation based on tenant plan type
@@ -256,7 +318,7 @@ func limitEnforceProxyHandler(w http.ResponseWriter, r *http.Request, eval func(
 		} else if ok {
 			DirectBrokerProxyHandler(w, r)
 		} else {
-			http.Error(w, "over the namespace limit", http.StatusForbidden)
+			http.Error(w, "over the quota limit", http.StatusPaymentRequired)
 		}
 	}
 	w.WriteHeader(http.StatusUnauthorized)

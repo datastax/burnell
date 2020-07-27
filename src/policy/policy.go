@@ -208,3 +208,14 @@ func Init() {
 func IsFeatureSupported(feature, featureCodes string) bool {
 	return featureCodes == FeatureAllEnabled || util.StrContains(strings.Split(featureCodes, ","), feature)
 }
+
+func newFreeTenantPlan(tenantName string) TenantPlan {
+	return TenantPlan{
+		Name:         tenantName,
+		TenantStatus: Activated,
+		PlanType:     FreeTier,
+		UpdatedAt:    time.Now(),
+		Policy:       TenantPlanPolicies.FreePlan,
+		Audit:        "automatically created free plan",
+	}
+}

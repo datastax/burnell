@@ -188,6 +188,19 @@ func (s *TenantPolicyHandler) GetTenant(tenantName string) (TenantPlan, error) {
 	return TenantPlan{}, fmt.Errorf("tenant not found in database")
 }
 
+// GetOrCreateTenant gets a tenant. It creates a tenant with free plan if it does not exist in cache only.
+func (s *TenantPolicyHandler) GetOrCreateTenant(tenantName string) (TenantPlan, error) {
+	t, err := s.GetTenant(tenantName)
+	if err != nil {
+		s.logger.Errorf("tenant %s not found in plan policy database", tenantName)
+		t = newFreeTenantPlan(tenantName)
+		s.tenantsLock.Lock()
+		s.tenants[tenantName] = t
+		s.tenantsLock.Unlock()
+	}
+	return t, nil
+}
+
 // DeleteTenant gets a tenant by the name
 func (s *TenantPolicyHandler) DeleteTenant(tenantName string) (TenantPlan, error) {
 	s.tenantsLock.RLock()
@@ -276,12 +289,8 @@ func takeTenantStatus(a, b TenantStatus) TenantStatus {
 
 // EvaluateNamespaceLimit evaluates the requested namespace addition would over the limit
 func (s *TenantPolicyHandler) EvaluateNamespaceLimit(tenant string) (bool, error) {
-	s.tenantsLock.RLock()
-	t, ok := s.tenants[tenant]
-	s.tenantsLock.RUnlock()
-	if !ok {
-		return false, fmt.Errorf("tenant %s not found in plan policy database", tenant)
-	}
+	t, _ := s.GetOrCreateTenant(tenant)
+	s.logger.Infof("tenant %s is type %s has namespace limit %d", tenant, t.PlanType, t.Policy.NumOfNamespaces)
 
 	namespaces, err := AdminAPIGETRespStringArray("namespaces/" + tenant)
 	if err != nil {
@@ -293,18 +302,14 @@ func (s *TenantPolicyHandler) EvaluateNamespaceLimit(tenant string) (bool, error
 
 // EvaluateTopicLimit evaluates the requested topic addition would over the limit
 func (s *TenantPolicyHandler) EvaluateTopicLimit(tenant string) (bool, error) {
-	s.tenantsLock.RLock()
-	t, ok := s.tenants[tenant]
-	s.tenantsLock.RUnlock()
-	if !ok {
-		return false, fmt.Errorf("unable to find tenant %s in the plan policy database", tenant)
-	}
+	t, _ := s.GetOrCreateTenant(tenant)
 
 	_, counts := CountTopics(tenant)
 	if counts < 0 {
 		return false, fmt.Errorf("unable to find tenant %s in the topic listener database", tenant)
 	}
-	return counts > t.Policy.NumOfTopics, nil
+	s.logger.Infof("tenant %s with the plicy limit of %d topics but has %d topics", tenant, t.Policy.NumOfTopics, counts)
+	return t.Policy.NumOfTopics > counts, nil
 }
 
 // IsFreeStarterPlan checks the tenant plan is either free or starter plan
@@ -331,7 +336,7 @@ func (s *TenantPolicyHandler) GetFunctionsLimit(tenant string) int {
 
 // AdminAPIGETRespStringArray is a template tenant call that returns an array of string
 func AdminAPIGETRespStringArray(subroute string) ([]string, error) {
-	requestURL := util.SingleJoinSlash(util.Config.BrokerProxyURL, subroute)
+	requestURL := util.SingleJoinSlash(util.SingleJoinSlash(util.Config.BrokerProxyURL, "/admin/v2"), subroute)
 	log.Infof(requestURL)
 	empty := make([]string, 1)
 	newRequest, err := http.NewRequest(http.MethodGet, requestURL, nil)
@@ -339,14 +344,17 @@ func AdminAPIGETRespStringArray(subroute string) ([]string, error) {
 		log.Errorf("make http request request url %s error %v", requestURL, err)
 		return empty, err
 	}
+	newRequest.Header.Add("X-Proxy", "burnell")
 	newRequest.Header.Add("Authorization", "Bearer "+util.Config.PulsarToken)
-	client := &http.Client{}
+	client := &http.Client{
+		CheckRedirect: util.PreserveHeaderForRedirect,
+	}
 	response, err := client.Do(newRequest)
 	if response != nil {
 		defer response.Body.Close()
 	}
 	if err != nil {
-		log.Errorf("GET request url %s error %v", requestURL, err)
+		log.Errorf("GET namespaces request url %s error %v", requestURL, err)
 		return empty, err
 	}
 

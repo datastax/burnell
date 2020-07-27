@@ -122,7 +122,9 @@ func GetBrokers() []string {
 		return []string{}
 	}
 	newRequest.Header.Add("Authorization", "Bearer "+util.Config.PulsarToken)
-	client := &http.Client{}
+	client := &http.Client{
+		CheckRedirect: util.PreserveHeaderForRedirect,
+	}
 	response, err := client.Do(newRequest)
 	if response != nil {
 		defer response.Body.Close()
@@ -202,7 +204,9 @@ func brokerStatsTopicsQuery(urlString string) (map[string]string, error) {
 	}
 	newRequest.Header.Add("user-agent", "burnell")
 	newRequest.Header.Add("Authorization", "Bearer "+util.Config.PulsarToken)
-	client := &http.Client{}
+	client := &http.Client{
+		CheckRedirect: util.PreserveHeaderForRedirect,
+	}
 	response, err := client.Do(newRequest)
 	if response != nil {
 		defer response.Body.Close()
@@ -294,7 +298,9 @@ func getTopicsFromNamespace(path string, isPersistent bool) ([]string, error) {
 		return nil, err
 	}
 	newRequest.Header.Add("Authorization", "Bearer "+util.Config.PulsarToken)
-	client := &http.Client{}
+	client := &http.Client{
+		CheckRedirect: util.PreserveHeaderForRedirect,
+	}
 	response, err := client.Do(newRequest)
 	if response != nil {
 		defer response.Body.Close()
@@ -335,20 +341,7 @@ func getSingleTopicStats(topicFullname string, isPartitionTopic bool) (interface
 
 	client := *http.DefaultClient
 	// keep authorization header for the redirect
-	client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
-		if len(via) >= 10 {
-			return fmt.Errorf("too many redirects")
-		}
-		if len(via) == 0 {
-			return nil
-		}
-		for attr, val := range via[0].Header {
-			if _, ok := req.Header[attr]; !ok {
-				req.Header[attr] = val
-			}
-		}
-		return nil
-	}
+	client.CheckRedirect = util.PreserveHeaderForRedirect
 
 	// Update the headers to allow for SSL redirection
 	newRequest, err := http.NewRequest(http.MethodGet, requestBrokersURL, nil)
@@ -544,7 +537,9 @@ func brokerStatsQuery(urlString, subRoute string, respChan chan BrokerStats) {
 	}
 	newRequest.Header.Add("user-agent", "burnell")
 	newRequest.Header.Add("Authorization", "Bearer "+util.Config.PulsarToken)
-	client := &http.Client{}
+	client := &http.Client{
+		CheckRedirect: util.PreserveHeaderForRedirect,
+	}
 	response, err := client.Do(newRequest)
 	if response != nil {
 		defer response.Body.Close()
