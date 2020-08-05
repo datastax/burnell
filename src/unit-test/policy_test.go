@@ -26,11 +26,16 @@ func TestFeatureCodes(t *testing.T) {
 	name, ok = ValidateFeatureCode("feature-code123")
 	assert(t, name == "feature-code123", "verify feature code name with alphanumeric and dash")
 	assert(t, ok, "a valid feature code")
+
+	assert(t, IsFeatureSupported(BrokerMetrics, FeatureAllEnabled), "test broker metrics against all enabled feature sets")
+	assert(t, !IsFeatureSupported(BrokerMetrics, "broker-metric"), "test broker metrics against an invalid feature sets")
+	assert(t, !IsFeatureSupported(BrokerMetrics, "infinite-message-retention,broker-metric,new-feature"), "test broker metrics against a list of invalid feature sets")
+	assert(t, IsFeatureSupported(BrokerMetrics, "infinite-message-retention,broker-metrics,new-feature"), "test broker metrics against a list of valid feature sets")
+	assert(t, !IsFeatureSupported(BrokerMetrics, ""), "test broker metrics against empty feature codes")
 }
 
 func TestFeatureCodeMap(t *testing.T) {
 	err := BuildFeatureCodeMap()
-	fmt.Printf("Error from BuildFeatureCodeMap %v\n", err)
 	errNil(t, err)
 	assert(t, len(FeatureCodeMap) == len(KafkaesqueFeatureCodes), "featureCodeMap matches the size of KafkaesqueFeatureCodes")
 }

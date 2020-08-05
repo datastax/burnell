@@ -249,6 +249,41 @@ func cachedGetProxy(r *http.Request) ([]byte, int, error) {
 	return body, http.StatusOK, nil
 }
 
+func getTenantNameList() ([]string, error) {
+	requestURL := util.SingleJoinSlash(util.Config.BrokerProxyURL, "admin/v2/tenants")
+	newRequest, err := http.NewRequest(http.MethodGet, requestURL, nil)
+	if err != nil {
+		// util.ResponseErrorJSON(errors.New("failed to set proxy request"), w, http.StatusInternalServerError)
+		return nil, err
+	}
+	newRequest.Header.Add("X-Proxy", "burnell")
+	newRequest.Header.Add("Authorization", "Bearer "+util.Config.PulsarToken)
+
+	client := &http.Client{
+		CheckRedirect: util.PreserveHeaderForRedirect,
+	}
+	response, err := client.Do(newRequest)
+	if response != nil {
+		defer response.Body.Close()
+	}
+	if err != nil {
+		log.Errorf("%v", err)
+		return nil, errors.New("proxy failure")
+	}
+
+	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return nil, errors.New("failed to read proxy response body")
+	}
+
+	tenants := []string{}
+	if err = json.Unmarshal(body, &tenants); err != nil {
+		return nil, err
+	}
+
+	return tenants, nil
+}
+
 // NamespacePolicyProxyHandler - authorizes namespace proxy operation based on tenant plan type
 func NamespacePolicyProxyHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
@@ -529,7 +564,20 @@ func TenantManagementHandler(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case http.MethodGet:
-		if newPlan, err = policy.TenantManager.GetTenant(tenant); err != nil {
+		tenants, err := getTenantNameList()
+		if err != nil {
+			util.ResponseErrorJSON(err, w, http.StatusInternalServerError)
+			return
+		}
+		found := false
+		for _, t := range tenants {
+			if t == tenant {
+				newPlan, err = policy.TenantManager.GetOrCreateTenant(tenant)
+				found = true
+				break
+			}
+		}
+		if !found {
 			util.ResponseErrorJSON(err, w, http.StatusNotFound)
 			return
 		}

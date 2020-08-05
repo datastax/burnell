@@ -218,7 +218,7 @@ func GetFunctionLog(functionName, instance string, rd FunctionLogRequest) (Funct
 	address := fqdn + util.AssignString(util.GetConfig().LogServerPort, logstream.DefaultLogServerPort)
 	// address = logstream.DefaultLogServerPort
 	logger.Infof("connect to function worker address %s", address)
-	conn, err := grpc.Dial(address, grpc.WithInsecure(), grpc.WithBlock(), grpc.WithTimeout(2*time.Second))
+	conn, err := grpc.Dial(address, grpc.WithInsecure(), grpc.WithBlock(), grpc.WithTimeout(600*time.Second))
 	if err != nil {
 		logger.Errorf("grpc.Dial to log server error %v", err)
 		return FunctionLogResponse{}, err

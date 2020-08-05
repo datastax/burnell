@@ -18,17 +18,17 @@ type FeatureCode struct {
 
 // KafkaesqueFeatureCodes is a list of features offered by Kafkaesque
 var KafkaesqueFeatureCodes = []FeatureCode{
-	FeatureCode{
+	{
 		Name:        BrokerMetrics,
 		Description: "exposes tenant broker metrics",
 		Alias:       "broker-metrics,brokerMetrics",
 	},
-	FeatureCode{
+	{
 		Name:        InfiniteMessageRetention,
 		Description: "message infinite retention",
 		Alias:       "infiniteMessageRetention,imr",
 	},
-	FeatureCode{
+	{
 		Name:        "cluster-usage-tracking",
 		Description: "tracks cluster usage by hours",
 		Alias:       "cut,clusterUsageTracking",
