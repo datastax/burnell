@@ -7,7 +7,6 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"net/http/httputil"
 	"net/url"
 	"strconv"
 	"strings"
@@ -69,7 +68,6 @@ func TokenSubjectHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		util.ResponseErrorJSON(errors.New("failed to generate token"), w, http.StatusInternalServerError)
 	} else {
-		w.WriteHeader(http.StatusOK)
 		respJSON, err := json.Marshal(&TokenServerResponse{
 			Subject: subject,
 			Token:   tokenString,
@@ -78,8 +76,7 @@ func TokenSubjectHandler(w http.ResponseWriter, r *http.Request) {
 			util.ResponseErrorJSON(errors.New("failed to marshal token response json object"), w, http.StatusInternalServerError)
 			return
 		}
-		w.Write(respJSON)
-		w.WriteHeader(http.StatusOK)
+		w.Write(respJSON) // implicitly http.StatusOK
 		return
 	}
 	return
@@ -93,18 +90,13 @@ func StatusPage(w http.ResponseWriter, r *http.Request) {
 
 // DirectBrokerProxyHandler - Pulsar broker admin REST API
 func DirectBrokerProxyHandler(w http.ResponseWriter, r *http.Request) {
-
-	proxy := httputil.NewSingleHostReverseProxy(util.BrokerProxyURL)
-	// Update r *http.Request based on proxy
-	updateProxyRequest(r, util.BrokerProxyURL)
-
-	proxy.ServeHTTP(w, r)
-
+	requestURL := util.SingleJoinSlash(util.Config.BrokerProxyURL, r.URL.RequestURI())
+	httpProxy(requestURL, w, r)
 }
 
 // DirectFunctionProxyHandler - Pulsar function admin REST API
 func DirectFunctionProxyHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Del("Content-Type") // remove middle set content-type because the proxy will set too
+	// w.Header().Del("Content-Type") // remove middle set content-type because the proxy will set too
 	if r.Method != http.MethodGet && r.Method != http.MethodDelete {
 		subject := r.Header.Get("injectedSubs")
 		if subject == "" {
@@ -124,9 +116,8 @@ func DirectFunctionProxyHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	proxy := httputil.NewSingleHostReverseProxy(util.FunctionProxyURL)
-	updateProxyRequest(r, util.FunctionProxyURL)
-	proxy.ServeHTTP(w, r)
+	requestURL := util.SingleJoinSlash(util.Config.FunctionProxyURL, r.URL.RequestURI())
+	httpProxy(requestURL, w, r)
 }
 
 // RestrictedTenantsProxyHandler filters tenants based on token subject
@@ -150,7 +141,6 @@ func RestrictedTenantsProxyHandler(w http.ResponseWriter, r *http.Request) {
 	_, role := ExtractTenant(subject)
 	if util.StrContains(util.SuperRoles, role) {
 		w.Write(data)
-		w.WriteHeader(http.StatusOK)
 		return
 	}
 	log.Infof("subject role is %s", role)
@@ -172,7 +162,6 @@ func RestrictedTenantsProxyHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			w.Write(data)
-			w.WriteHeader(http.StatusOK)
 			return
 		}
 	}
@@ -194,8 +183,9 @@ func CachedProxyHandler(w http.ResponseWriter, r *http.Request) {
 func CachedProxyGETHandler(w http.ResponseWriter, r *http.Request) {
 	data, statusCode, err := cachedGetProxy(r)
 	if err == nil {
+		log.Infof("CachedProxyGETHandler return status %d", statusCode)
+		w.WriteHeader(statusCode)
 		w.Write(data)
-		w.WriteHeader(http.StatusOK)
 		return
 	}
 	util.ResponseErrorJSON(err, w, statusCode)
@@ -203,11 +193,11 @@ func CachedProxyGETHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func cachedGetProxy(r *http.Request) ([]byte, int, error) {
-	key := HashKey(r.URL.Path + r.Header["Authorization"][0])
-	log.Infof("hash key is %s\n", key)
-	if entry, err := HTTPCache.Get(key); err == nil {
-		return entry, http.StatusOK, nil
-	}
+	//key := HashKey(r.URL.Path + r.Header["Authorization"][0])
+	//log.Infof("hash key is %s\n", key)
+	//if entry, err := HTTPCache.Get(key); err == nil {
+	//	return entry, http.StatusOK, nil
+	//}
 	requestURL := util.SingleJoinSlash(util.Config.BrokerProxyURL, r.URL.RequestURI())
 	log.Infof("request route %s to proxy %v\n\tdestination url is %s", r.URL.RequestURI(), util.BrokerProxyURL, requestURL)
 
@@ -240,13 +230,51 @@ func cachedGetProxy(r *http.Request) ([]byte, int, error) {
 		return nil, http.StatusInternalServerError, errors.New("failed to read proxy response body")
 	}
 
-	err = HTTPCache.Set(key, body)
+	/*err = HTTPCache.Set(key, body)
 	if err != nil {
 		log.Errorf("Could not write into cache: %v", err)
 	}
 	log.Debugf("set in cache key is %s", key)
+	*/
 
-	return body, http.StatusOK, nil
+	return body, response.StatusCode, nil
+}
+
+func httpProxy(requestURL string, w http.ResponseWriter, r *http.Request) {
+	log.Infof("request route %s to proxy %v\n\tdestination url is %s", r.URL.RequestURI(), util.BrokerProxyURL, requestURL)
+
+	// Update the headers to allow for SSL redirection
+	newRequest, err := http.NewRequest(r.Method, requestURL, nil)
+	if err != nil {
+		util.ResponseErrorJSON(errors.New("failed to set proxy request"), w, http.StatusInternalServerError)
+		return
+	}
+	newRequest.Header.Add("X-Forwarded-Host", r.Header.Get("Host"))
+	newRequest.Header.Add("X-Proxy", "burnell")
+	newRequest.Header.Add("Authorization", "Bearer "+util.Config.PulsarToken)
+
+	client := &http.Client{
+		CheckRedirect: util.PreserveHeaderForRedirect,
+	}
+	response, err := client.Do(newRequest)
+	if response != nil {
+		defer response.Body.Close()
+	}
+	if err != nil {
+		log.Errorf("%v", err)
+		util.ResponseErrorJSON(errors.New("proxy failure"), w, http.StatusInternalServerError)
+		return
+	}
+
+	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		util.ResponseErrorJSON(errors.New("failed to read proxy response body"), w, http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(response.StatusCode)
+	w.Write(body)
+	return
 }
 
 func getTenantNameList() ([]string, error) {
@@ -291,8 +319,9 @@ func NamespacePolicyProxyHandler(w http.ResponseWriter, r *http.Request) {
 		if policy.TenantManager.IsFreeStarterPlan(tenant) {
 			DirectBrokerProxyHandler(w, r)
 		}
+	} else {
+		w.WriteHeader(http.StatusUnauthorized)
 	}
-	w.WriteHeader(http.StatusUnauthorized)
 }
 
 // BrokerAggregatorHandler aggregates all broker-stats and reply
@@ -316,13 +345,12 @@ func BrokerAggregatorHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Write(byte)
-	w.WriteHeader(http.StatusOK)
 	return
 }
 
 // TopicProxyHandler enforces the number of topic based on the plan type
 func TopicProxyHandler(w http.ResponseWriter, r *http.Request) {
-	limitEnforceProxyHandler(w, r, policy.TenantManager.EvaluateTopicLimit)
+	limitEnforceProxyHandler(w, r, policy.TenantManager.EvaluateAlwaysSuccessful)
 }
 
 // NamespaceLimitEnforceProxyHandler enforces the number of namespace limit based on the plan type
@@ -355,8 +383,9 @@ func limitEnforceProxyHandler(w http.ResponseWriter, r *http.Request, eval func(
 		} else {
 			http.Error(w, "over the quota limit", http.StatusPaymentRequired)
 		}
+	} else {
+		w.WriteHeader(http.StatusUnauthorized)
 	}
-	w.WriteHeader(http.StatusUnauthorized)
 }
 
 // FunctionLogsHandler responds with the function logs
@@ -410,8 +439,6 @@ func FunctionLogsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if clientRes.Logs == "" {
 		w.WriteHeader(http.StatusNoContent)
-	} else {
-		w.WriteHeader(http.StatusOK)
 	}
 	w.Write(jsonResponse)
 	return
@@ -428,8 +455,8 @@ func PulsarFederatedPrometheusHandler(w http.ResponseWriter, r *http.Request) {
 	// fmt.Printf("subject for federated prom %s tenant %s\n", subject, tenant)
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
 	if util.StrContains(util.SuperRoles, tenant) {
-		w.Write([]byte(metrics.AllNamespaceMetrics()))
 		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(metrics.AllNamespaceMetrics()))
 		return
 	}
 
@@ -612,7 +639,6 @@ func TenantManagementHandler(w http.ResponseWriter, r *http.Request) {
 	if data, err := json.Marshal(newPlan); err == nil {
 		w.Write(data)
 	}
-	w.WriteHeader(http.StatusOK)
 }
 
 // PulsarBeamGetTopicHandler gets the topic details
@@ -787,18 +813,4 @@ func ExtractTenant(tokenSub string) (string, string) {
 		return case1, strings.Join(parts[:(validLength-1)], subDelimiter)
 	}
 	return case1, case1
-}
-
-func updateProxyRequest(r *http.Request, proxy *url.URL) {
-	log.Debugf("request route %s proxy URL %v", r.URL.RequestURI(), proxy)
-
-	// Update the headers to allow for SSL redirection
-	r.URL.Host = proxy.Host
-	r.URL.Scheme = proxy.Scheme
-	r.URL.Path = r.URL.RequestURI()
-	r.Header.Set("X-Forwarded-Host", r.Header.Get("Host"))
-	r.Header.Set("X-Proxy", "burnell")
-	r.Host = proxy.Host
-	r.RequestURI = r.URL.RequestURI()
-	r.Header["Authorization"] = []string{"Bearer " + util.Config.PulsarToken}
 }

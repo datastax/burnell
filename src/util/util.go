@@ -66,7 +66,7 @@ func ReceiverHeader(h *http.Header) (token, topicFN, pulsarURL string, err bool)
 
 // PreserveHeaderForRedirect preserves HTTP headers during HTTP redirect
 func PreserveHeaderForRedirect(req *http.Request, via []*http.Request) error {
-	if len(via) >= 10 {
+	if len(via) >= 50 {
 		return fmt.Errorf("too many redirects in GET CachedProxy")
 	}
 	if len(via) == 0 {

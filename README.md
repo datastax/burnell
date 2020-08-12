@@ -142,6 +142,14 @@ $ curl -X DELETE -H "Authorization: Bearer $MY_TOKEN" "http://localhost:8964/k/t
 {"name":"ming-luo","tenantStatus":1,"org":"","users":"","planType":"free","updatedAt":"2020-04-17T13:39:09.315634076-04:00","policy":{"name":"free","numOfTopics":5,"numOfNamespaces":1,"messageHourRetention":48,"messageRetention":172800000000000,"numofProducers":3,"numOfConsumers":5,"functions":1,"featureCodes":""},"audit":"initial creation,"}
 ```
 
+### Tenant based Prometheus Metrics
+Expose `\pulsarmetrics` endpoint with Pulsar prometheus metrics pertaining to the tenant. The tenant is identified based on the Authorization token.
+
+If a superuser token is supplied, all the federated prometheus metrics will be returned.
+
+#### Scrape job requirement
+Scrape config offers `honor_labels: true` to honor the existing labels. It is optional because `exported_` labels can be used to identify metrics. But, the scrape job should set `honor_timestamps: true` to retain the original timestamp. Here is the [detail scrape config description](https://prometheus.io/docs/prometheus/latest/configuration/configuration/#scrape_config)
+
 ### Pulsar Admin Rest API Proxy
 
 #### Pulsar Admin REST API

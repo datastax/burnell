@@ -312,6 +312,11 @@ func (s *TenantPolicyHandler) EvaluateTopicLimit(tenant string) (bool, error) {
 	return t.Policy.NumOfTopics > counts, nil
 }
 
+// EvaluateAlwaysSuccessful evaluates the requested topic addition would over the limit
+func (s *TenantPolicyHandler) EvaluateAlwaysSuccessful(tenant string) (bool, error) {
+	return true, nil
+}
+
 // IsFreeStarterPlan checks the tenant plan is either free or starter plan
 func (s *TenantPolicyHandler) IsFreeStarterPlan(tenant string) bool {
 	s.tenantsLock.RLock()
