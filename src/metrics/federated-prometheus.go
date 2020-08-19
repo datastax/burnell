@@ -157,7 +157,7 @@ func InitUsageDbTable() error {
 
 // FilterFederatedMetrics collects the metrics the subject is allowed to access
 func FilterFederatedMetrics(subject string) string {
-	var rc string
+	var str strings.Builder
 	scanner := bufio.NewScanner(strings.NewReader(GetCache()))
 
 	pattern := fmt.Sprintf(`.*,namespace="%s.*`, subject)
@@ -172,15 +172,19 @@ func FilterFederatedMetrics(subject string) string {
 			matched, err = regexp.MatchString(pattern, text)
 			if matched && err == nil {
 				if typeDef == "" {
-					rc = fmt.Sprintf("%s%s\n", rc, text)
+					str.WriteString(text)
+					str.WriteString("\n")
 				} else {
-					rc = fmt.Sprintf("%s%s\n%s\n", rc, typeDef, text)
+					str.WriteString(typeDef)
+					str.WriteString("\n")
+					str.WriteString(text)
+					str.WriteString("\n")
 					typeDef = ""
 				}
 			}
 		}
 	}
-	return rc
+	return str.String()
 }
 
 // AllNamespaceMetrics returns all namespace metrics on the brokers
