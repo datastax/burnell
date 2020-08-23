@@ -419,8 +419,12 @@ func FunctionLogsHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bytes cannot be a negative value", http.StatusBadRequest)
 		return
 	}
+	workerID := ""
+	if strs, ok := params["workerid"]; ok {
+		workerID = strs[0]
+	}
 
-	clientRes, err := logclient.GetFunctionLog(tenant+namespace+funcName, instance, reqObj)
+	clientRes, err := logclient.GetFunctionLog(tenant+namespace+funcName, instance, workerID, reqObj)
 	if err != nil {
 		if err == logclient.ErrNotFoundFunction || strings.HasSuffix(err.Error(), "no such file or directory") {
 			http.Error(w, err.Error(), http.StatusNotFound)

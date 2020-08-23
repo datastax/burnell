@@ -207,7 +207,7 @@ func FunctionTopicWatchDog() {
 
 // GetFunctionLog gets the logs from the function worker process
 // Since the function may get reassigned after restart, we will establish the connection every time the log request is being made.
-func GetFunctionLog(functionName, instance string, rd FunctionLogRequest) (FunctionLogResponse, error) {
+func GetFunctionLog(functionName, instance, workerID string, rd FunctionLogRequest) (FunctionLogResponse, error) {
 	// var funcWorker string
 	function, ok := ReadFunctionMap(functionName)
 	if !ok {
@@ -215,6 +215,9 @@ func GetFunctionLog(functionName, instance string, rd FunctionLogRequest) (Funct
 	}
 	// Set up a connection to the server.
 	fqdn := function.FunctionWorkerID + functionWorkerDomain
+	if workerID != "" {
+		fqdn = workerID + functionWorkerDomain
+	}
 	address := fqdn + util.AssignString(util.GetConfig().LogServerPort, logstream.DefaultLogServerPort)
 	// address = logstream.DefaultLogServerPort
 	logger.Infof("connect to function worker address %s", address)
