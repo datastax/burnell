@@ -45,6 +45,11 @@ Since the algorithm always returns a few complete logs, the payload size can var
 }
 ```
 
+#### Function worker Id per function instances
+To help troubleshoot function instance and its worker Id mapping, the `function-status` endpoint offers insights of such mapping and function status.
+```
+/function-status/{tenant}/{namespace}/{function-name}
+```
 
 ### Tenant topics statistics collector
 

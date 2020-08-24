@@ -2,8 +2,12 @@ package logclient
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -40,18 +44,24 @@ type FunctionLogRequest struct {
 	Direction        string `json:"direction"`
 }
 
+// InstanceStatus is the status of function instance
+type InstanceStatus struct {
+	ID               int       `json:"id"`
+	Running          bool      `json:"running"`
+	LastReceivedTime time.Time `json:"lastReceivedTime"`
+	LastQueryTime    time.Time `json:"lastQueryTime"`
+	WorkerID         string    `json:"workerId"`
+	MetadataWorkerID string    `json:"metadataWorkerId"`
+}
+
 // FunctionType is the object encapsulates all the function attributes
 type FunctionType struct {
-	Tenant           string
-	Namespace        string
-	FunctionName     string
-	FunctionWorkerID string
-	InputTopics      []string
-	InputTopicRegex  string
-	SinkTopic        string
-	LogTopic         string
-	AutoAck          bool
-	Parallism        int32
+	Tenant       string                 `json:"tenant"`
+	Namespace    string                 `json:"namespace"`
+	FunctionName string                 `json:"functionName"`
+	Component    string                 `json:"component"`
+	Instances    map[int]InstanceStatus `json:"instances"`
+	Parallism    int32                  `json:"parallism"`
 }
 
 // the signal to track if the liveness of the reader process
@@ -69,11 +79,31 @@ func ReadFunctionMap(key string) (FunctionType, bool) {
 	return f, ok
 }
 
-// WriteFunctionMap writes a key/value to a thread safe map
-func WriteFunctionMap(key string, f FunctionType) {
+// WriteFunctionMapIfNotExist writes a key/value to a thread safe map
+func WriteFunctionMapIfNotExist(key string, f FunctionType) {
 	fnMpLock.Lock()
 	defer fnMpLock.Unlock()
-	functionMap[key] = f
+	if _, ok := functionMap[key]; !ok {
+		functionMap[key] = f
+	}
+}
+
+// UpdateWorkerIDInFunctionMap updates the function worker ID against the key
+func UpdateWorkerIDInFunctionMap(key, workerID string, instanceID int, running bool) {
+	status := InstanceStatus{
+		ID:               instanceID,
+		Running:          running,
+		LastQueryTime:    time.Now(),
+		WorkerID:         workerID,
+		MetadataWorkerID: workerID,
+	}
+
+	fnMpLock.Lock()
+	defer fnMpLock.Unlock()
+	if f, ok := functionMap[key]; ok {
+		f.Instances[instanceID] = status
+		functionMap[key] = f
+	}
 }
 
 // DeleteFunctionMap deletes a key from a thread safe map
@@ -157,37 +187,25 @@ func ReaderLoop(sig chan *liveSignal) {
 		}
 		sr := pb.ServiceRequest{}
 		proto.Unmarshal(msg.Payload(), &sr)
-		ParseServiceRequest(sr.GetFunctionMetaData(), sr.GetWorkerId(), sr.GetServiceRequestType())
-		//logger.Infof("total number of tenants %d, the total number of functions %d", len(tenantFunctionCounter), len(functionMap))
+		ParseServiceRequest(sr.GetFunctionMetaData())
+		// logger.Infof(" the total number of functions %d", len(functionMap))
 	}
 }
 
 // ParseServiceRequest build a Function object based on Pulsar function metadata message
-func ParseServiceRequest(sr *pb.FunctionMetaData, workerID string, serviceType pb.ServiceRequest_ServiceRequestType) {
+func ParseServiceRequest(sr *pb.FunctionMetaData) {
 	fd := sr.FunctionDetails
 	key := fd.GetTenant() + fd.GetNamespace() + fd.GetName()
-	if serviceType == pb.ServiceRequest_DELETE {
-		DeleteFunctionMap(key)
-	} else {
-		f := FunctionType{
-			Tenant:           fd.GetTenant(),
-			Namespace:        fd.GetNamespace(),
-			FunctionName:     fd.GetName(),
-			FunctionWorkerID: workerID,
-			InputTopicRegex:  fd.Source.GetTopicsPattern(),
-			SinkTopic:        fd.Sink.Topic,
-			LogTopic:         fd.GetLogTopic(),
-			AutoAck:          fd.GetAutoAck(),
-			Parallism:        fd.GetParallelism(),
-		}
-		for k := range fd.Source.InputSpecs {
-			f.InputTopics = append(f.InputTopics, k)
-		}
-		if len(fd.Source.TopicsPattern) > 0 {
-			f.InputTopics = append(f.InputTopics, fd.Source.TopicsPattern)
-		}
-		WriteFunctionMap(key, f)
+	// allows to cache and display logs for service Type is pb.ServiceRequest_DELETE
+	f := FunctionType{
+		Tenant:       fd.GetTenant(),
+		Namespace:    fd.GetNamespace(),
+		FunctionName: fd.GetName(),
+		Parallism:    fd.GetParallelism(),
+		Component:    GetComponentType(fd.ComponentType),
+		Instances:    make(map[int]InstanceStatus),
 	}
+	WriteFunctionMapIfNotExist(key, f)
 }
 
 // FunctionTopicWatchDog is a watch dog for the function topic reader process
@@ -207,17 +225,18 @@ func FunctionTopicWatchDog() {
 
 // GetFunctionLog gets the logs from the function worker process
 // Since the function may get reassigned after restart, we will establish the connection every time the log request is being made.
-func GetFunctionLog(functionName, instance, workerID string, rd FunctionLogRequest) (FunctionLogResponse, error) {
-	// var funcWorker string
-	function, ok := ReadFunctionMap(functionName)
-	if !ok {
-		return FunctionLogResponse{}, ErrNotFoundFunction
+func GetFunctionLog(functionName, workerID string, instanceID int, rd FunctionLogRequest) (FunctionLogResponse, error) {
+	var fn FunctionType
+	if workerID == "" {
+		var err error
+		fn, workerID, err = GetFunctionWorkerID(functionName, instanceID)
+		if err != nil {
+			return FunctionLogResponse{}, err
+		}
 	}
+
 	// Set up a connection to the server.
-	fqdn := function.FunctionWorkerID + functionWorkerDomain
-	if workerID != "" {
-		fqdn = workerID + functionWorkerDomain
-	}
+	fqdn := workerID + functionWorkerDomain
 	address := fqdn + util.AssignString(util.GetConfig().LogServerPort, logstream.DefaultLogServerPort)
 	// address = logstream.DefaultLogServerPort
 	logger.Infof("connect to function worker address %s", address)
@@ -234,7 +253,7 @@ func GetFunctionLog(functionName, instance, workerID string, rd FunctionLogReque
 
 	direction := requestDirection(rd)
 	req := &logstream.ReadRequest{
-		File:          logstream.FunctionLogPath(function.Tenant, function.Namespace, function.FunctionName, instance),
+		File:          logstream.FunctionLogPath(fn.Tenant, fn.Namespace, fn.FunctionName, strconv.Itoa(instanceID)),
 		Direction:     direction,
 		Bytes:         rd.Bytes,
 		ForwardIndex:  rd.ForwardPosition,
@@ -259,6 +278,118 @@ func requestDirection(rd FunctionLogRequest) logstream.ReadRequest_Direction {
 		return logstream.ReadRequest_FORWARD
 	}
 	return logstream.ReadRequest_BACKWARD
+}
+
+// GetComponentType returns a component type in string (i.e. function, sink, source) based on protobuf component type
+func GetComponentType(componentType pb.FunctionDetails_ComponentType) string {
+	switch componentType {
+	case pb.FunctionDetails_FUNCTION:
+		return "functions"
+	case pb.FunctionDetails_SOURCE:
+		return "sources"
+	case pb.FunctionDetails_SINK:
+		return "sinks"
+	default:
+		return "unknown"
+	}
+}
+
+// FuncInstanceStatus is the function/sink/source instance status
+type FuncInstanceStatus struct {
+	Running  bool   `json:"running"`
+	Error    string `json:"error"`
+	WorkerID string `json:"workerId"`
+}
+
+// FuncInstance is the function instance
+type FuncInstance struct {
+	InstanceID int                `json:"instanceId"`
+	Status     FuncInstanceStatus `json:"status"`
+}
+
+// FuncStatus is the status for function instances
+type FuncStatus struct {
+	NumInstances int            `json:"numInstances"`
+	NumRunning   int            `json:"numRunning"`
+	Instances    []FuncInstance `json:"instances"`
+}
+
+// GetFunctionStatus get the function status
+func GetFunctionStatus(fn FunctionType) (FuncStatus, error) {
+	// util.Config.FunctionProxyURL
+	functionRoute := fn.Tenant + "/" + fn.Namespace + "/" + fn.FunctionName + "/status"
+	requestURL := util.SingleJoinSlash(util.Config.FunctionProxyURL,
+		util.SingleJoinSlash("/admin/v3/"+fn.Component, functionRoute))
+	log.Infof("GET FunctionStatus request url is %s", requestURL)
+
+	// Update the headers to allow for SSL redirection
+	newRequest, err := http.NewRequest(http.MethodGet, requestURL, nil)
+	if err != nil {
+		return FuncStatus{}, err
+	}
+	newRequest.Header.Add("X-Request", "burnell-functions-cache")
+	newRequest.Header.Add("Authorization", "Bearer "+util.Config.PulsarToken)
+
+	client := &http.Client{
+		CheckRedirect: util.PreserveHeaderForRedirect,
+	}
+	response, err := client.Do(newRequest)
+	if response != nil {
+		defer response.Body.Close()
+	}
+	if err != nil {
+		log.Errorf("%v", err)
+		return FuncStatus{}, err
+	}
+
+	if response.StatusCode != http.StatusOK {
+		return FuncStatus{}, fmt.Errorf("%s failure status code %d", requestURL, response.StatusCode)
+	}
+
+	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return FuncStatus{}, err
+	}
+
+	logger.Infof("nex to unmarshal res  body")
+	status := FuncStatus{}
+	if err := json.Unmarshal(body, &status); err != nil {
+		return FuncStatus{}, err
+	}
+
+	logger.Infof("function status %v", status)
+	return status, nil
+}
+
+const queryTimeout = 3 * time.Minute
+
+// GetFunctionWorkerID gets function instance workerID
+func GetFunctionWorkerID(functionName string, instanceID int) (FunctionType, string, error) {
+	// var funcWorker string
+	function, ok := ReadFunctionMap(functionName)
+	if !ok {
+		return FunctionType{}, "", ErrNotFoundFunction
+	}
+	instanceStatus, ok := function.Instances[instanceID]
+
+	if ok && time.Since(instanceStatus.LastQueryTime) < queryTimeout {
+		return function, instanceStatus.WorkerID, nil
+	}
+
+	logger.Infof("function type is %v", function)
+	status, err := GetFunctionStatus(function)
+	if err != nil {
+		return FunctionType{}, "", err
+	}
+
+	for _, v := range status.Instances {
+		if v.InstanceID == instanceID {
+			UpdateWorkerIDInFunctionMap(functionName, v.Status.WorkerID, instanceID, v.Status.Running)
+			return function, v.Status.WorkerID, nil
+		}
+	}
+
+	return FunctionType{}, "", ErrNotFoundFunction
 }
 
 // /pulsar/logs/functions/ming-luo/namespace2/for-monitor-function

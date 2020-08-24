@@ -54,6 +54,8 @@ func NewRouter() *mux.Router {
 		Handler(AuthVerifyTenantJWT(http.HandlerFunc(FunctionLogsHandler)))
 	router.Path("/function-logs/{tenant}/{namespace}/{function}/{instance}").Methods(http.MethodGet).Name("function-logs").
 		Handler(AuthVerifyTenantJWT(http.HandlerFunc(FunctionLogsHandler)))
+	router.Path("/function-status/{tenant}/{namespace}/{function}").Methods(http.MethodGet).Name("function-logs-status").
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(FunctionStatusHandler)))
 
 	// aggregated topics under namespaces
 	router.Path("/admin/v2/topics/{tenant}").Methods(http.MethodGet).Name("topics-grouped-by-namespaces").

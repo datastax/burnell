@@ -388,17 +388,46 @@ func limitEnforceProxyHandler(w http.ResponseWriter, r *http.Request, eval func(
 	}
 }
 
+// FunctionStatusHandler returns a function's status including worker ID as the FunctionLogHandler sees
+func FunctionStatusHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	tenant, ok := vars["tenant"]
+	namespace, ok2 := vars["namespace"]
+	funcName, ok3 := vars["function"]
+	if !(ok && ok2 && ok3) {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		return
+	}
+
+	funcType, ok := logclient.ReadFunctionMap(tenant + namespace + funcName)
+	if !ok {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	responseBody, err := json.Marshal(funcType)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Write(responseBody)
+}
+
 // FunctionLogsHandler responds with the function logs
 func FunctionLogsHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	tenant, ok := vars["tenant"]
 	namespace, ok2 := vars["namespace"]
 	funcName, ok3 := vars["function"]
-	instance, ok4 := vars["instance"]
-	if !ok4 {
-		instance = "0"
+	instance := 0 // default instance is 0
+	if instanceStr, ok4 := vars["instance"]; ok4 {
+		var err error
+		instance, err = strconv.Atoi(instanceStr)
+		if err != nil {
+			http.Error(w, "invalid instance name", http.StatusBadRequest)
+			return
+		}
 	}
-	log.WithField("app", "FunctionLogHandler").Infof("funcation path %s, %s, %s, instance %s", tenant, namespace, funcName, instance)
+	log.WithField("app", "FunctionLogHandler").Infof("function path %s, %s, %s, instance %d", tenant, namespace, funcName, instance)
 	if !(ok && ok2 && ok3) {
 		w.WriteHeader(http.StatusUnprocessableEntity)
 		return
@@ -424,7 +453,7 @@ func FunctionLogsHandler(w http.ResponseWriter, r *http.Request) {
 		workerID = strs[0]
 	}
 
-	clientRes, err := logclient.GetFunctionLog(tenant+namespace+funcName, instance, workerID, reqObj)
+	clientRes, err := logclient.GetFunctionLog(tenant+namespace+funcName, workerID, instance, reqObj)
 	if err != nil {
 		if err == logclient.ErrNotFoundFunction || strings.HasSuffix(err.Error(), "no such file or directory") {
 			http.Error(w, err.Error(), http.StatusNotFound)
