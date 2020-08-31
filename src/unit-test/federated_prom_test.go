@@ -16,9 +16,8 @@ func TestFederatedPromProcess(t *testing.T) {
 
 	SetCache(string(dat))
 	rc := FilterFederatedMetrics("victor")
-	fmt.Println(rc)
 	parts := strings.Split(rc, "\n")
-	equals(t, 18, len(parts))
+	equals(t, 19, len(parts))
 	typeDefPattern := fmt.Sprintf(`^# TYPE .*`)
 	count := 0
 	for _, v := range parts {

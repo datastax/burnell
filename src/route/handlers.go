@@ -498,9 +498,25 @@ func PulsarFederatedPrometheusHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "", http.StatusForbidden)
 	}
 	*/
+	tenantFederatedPrometheus(tenant, w)
+}
+
+func tenantFederatedPrometheus(tenant string, w http.ResponseWriter) {
 	data := metrics.FilterFederatedMetrics(tenant)
-	w.WriteHeader(http.StatusOK)
+	if len(data) > 1 {
+		w.WriteHeader(http.StatusOK)
+	} else {
+		w.WriteHeader(http.StatusNotFound)
+	}
 	w.Write([]byte(data))
+}
+
+// PulsarFederatedDebugPrometheusHandler is for superrole to get individual tenant metrics
+func PulsarFederatedDebugPrometheusHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	tenant, _ := vars["tenant"]
+	w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+	tenantFederatedPrometheus(tenant, w)
 }
 
 // TenantUsageHandler returns tenant usage

@@ -198,7 +198,7 @@ func Scrape(url string) {
 
 	// All prometheus jobs
 	// req, err := http.NewRequest("GET", url+"/?match[]={__name__=~\"..*\"}", nil)
-	req, err := http.NewRequest("GET", url+"/?match[]={job=~\"broker\"}", nil)
+	req, err := http.NewRequest("GET", url+"/?match[]={job=~\"broker.*\"}", nil)
 	if err != nil {
 		logger.Errorf("url request error %s", err.Error())
 		return

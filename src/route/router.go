@@ -22,6 +22,8 @@ func NewRouter() *mux.Router {
 	router.Path("/metrics").Methods(http.MethodGet).Name("metrics").Handler(NoAuth(promhttp.Handler()))
 	router.Path("/tenantsusage").Methods(http.MethodGet).Name("tenants usage").Handler(SuperRoleRequired(http.HandlerFunc(TenantUsageHandler)))
 	router.Path("/namespacesusage/{tenant}").Methods(http.MethodGet).Name("tenant namespaces usage").Handler(AuthVerifyTenantJWT(http.HandlerFunc(TenantUsageHandler)))
+	router.Path("/pulsarmetrics/{tenant}").Methods(http.MethodGet).Name("pulsar metrics").
+		Handler(SuperRoleRequired(http.HandlerFunc(PulsarFederatedDebugPrometheusHandler)))
 	router.Path("/pulsarmetrics").Methods(http.MethodGet).Name("pulsar metrics").
 		Handler(AuthVerifyJWT(http.HandlerFunc(PulsarFederatedPrometheusHandler)))
 
