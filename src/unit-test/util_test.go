@@ -67,3 +67,9 @@ func TestBytesToMB(t *testing.T) {
 	assert(t, 2 == BytesToMegaBytesFloor(1000*2000), "test  2 megabytes")
 	assert(t, 40 == BytesToMegaBytesFloor(40479809), "test  megabytes")
 }
+
+func TestComputeDelta(t *testing.T) {
+	assert(t, 2 == ComputeDelta(5, 7, 0), "")
+	assert(t, 0 == ComputeDelta(7, 5, 0), "")
+	assert(t, 0 == ComputeDelta(7, 7, 0), "")
+}

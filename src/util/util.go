@@ -188,3 +188,11 @@ func ParsePartitionTopicName(topic string) (string, bool) {
 func IsPersistentTopic(topic string) bool {
 	return strings.HasPrefix(topic, persistentPrefix)
 }
+
+// ComputeDelta computes positive delta between last and current integer value, returns a default if the delta is negative
+func ComputeDelta(last, current, defaultValue uint64) uint64 {
+	if last >= current {
+		return defaultValue
+	}
+	return current - last
+}

@@ -22,7 +22,7 @@ type Usage struct {
 	TotalMessagesIn  uint64    `json:"totalMessagesIn"`
 	TotalBytesIn     uint64    `json:"totalBytesIn"`
 	TotalMessagesOut uint64    `json:"totalMessagesOut"`
-	TotalBytesOut    uint64    `json:"totalBytesBOut"`
+	TotalBytesOut    uint64    `json:"totalBytesOut"`
 	MsgInBacklog     uint64    `json:"msgInBacklog"`
 	UpdatedAt        time.Time `json:"updatedAt"`
 }
@@ -37,7 +37,7 @@ type TopicPerBrokerUsage struct {
 	TotalMessagesIn  uint64    `json:"totalMessagesIn"`
 	TotalBytesIn     uint64    `json:"totalBytesIn"`
 	TotalMessagesOut uint64    `json:"totalMessagesOut"`
-	TotalBytesOut    uint64    `json:"totalBytesBOut"`
+	TotalBytesOut    uint64    `json:"totalBytesOut"`
 	MsgInBacklog     uint64    `json:"msgInBacklog"`
 	UpdatedAt        time.Time `json:"updatedAt"`
 }
@@ -50,7 +50,7 @@ var (
 	tenantsLock = sync.RWMutex{}
 
 	cacheLock = sync.RWMutex{}
-	cache     string
+	cache     string // the the cache for raw prometheus data
 )
 
 var tenantMetricNames = map[string]bool{
