@@ -1,6 +1,7 @@
 package route
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -243,12 +244,25 @@ func cachedGetProxy(r *http.Request) ([]byte, int, error) {
 func httpProxy(requestURL string, w http.ResponseWriter, r *http.Request) {
 	log.Infof("request route %s to proxy %v\n\tdestination url is %s", r.URL.RequestURI(), util.BrokerProxyURL, requestURL)
 
+	body, err := ioutil.ReadAll(r.Body)
+	if body != nil {
+		r.Body.Close()
+	}
+	if err != nil {
+		log.Infof("%s Error reading body: %v", requestURL, err)
+		http.Error(w, "can't read body", http.StatusBadRequest)
+		return
+	}
 	// Update the headers to allow for SSL redirection
-	newRequest, err := http.NewRequest(r.Method, requestURL, nil)
+	newRequest, err := http.NewRequest(r.Method, requestURL, bytes.NewBuffer(body))
 	if err != nil {
 		util.ResponseErrorJSON(errors.New("failed to set proxy request"), w, http.StatusInternalServerError)
 		return
 	}
+	if newRequest.Header == nil {
+		newRequest.Header = make(http.Header)
+	}
+	newRequest.Header = r.Header
 	newRequest.Header.Add("X-Forwarded-Host", r.Header.Get("Host"))
 	newRequest.Header.Add("X-Proxy", "burnell")
 	newRequest.Header.Add("Authorization", "Bearer "+util.Config.PulsarToken)
@@ -266,7 +280,7 @@ func httpProxy(requestURL string, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	body, err := ioutil.ReadAll(response.Body)
+	body, err = ioutil.ReadAll(response.Body)
 	if err != nil {
 		util.ResponseErrorJSON(errors.New("failed to read proxy response body"), w, http.StatusInternalServerError)
 		return
