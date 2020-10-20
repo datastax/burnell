@@ -208,11 +208,12 @@ func cachedGetProxy(r *http.Request) ([]byte, int, error) {
 		// util.ResponseErrorJSON(errors.New("failed to set proxy request"), w, http.StatusInternalServerError)
 		return nil, http.StatusInternalServerError, err
 	}
-	newRequest.Header.Add("X-Forwarded-Host", r.Header.Get("Host"))
-	newRequest.Header.Add("X-Proxy", "burnell")
+	newRequest.Header = r.Header
+	newRequest.Header.Set("X-Forwarded-Host", r.Header.Get("Host"))
+	newRequest.Header.Set("X-Proxy", "burnell")
 	//r.Host = util.ProxyURL.Host
 	//r.RequestURI = util.ProxyURL.RequestURI() + requestRoute
-	newRequest.Header.Add("Authorization", "Bearer "+util.Config.PulsarToken)
+	newRequest.Header.Set("Authorization", "Bearer "+util.Config.PulsarToken)
 
 	client := &http.Client{
 		CheckRedirect: util.PreserveHeaderForRedirect,
@@ -242,11 +243,11 @@ func cachedGetProxy(r *http.Request) ([]byte, int, error) {
 }
 
 func httpProxy(requestURL string, w http.ResponseWriter, r *http.Request) {
-	log.Infof("request route %s to proxy %v\n\tdestination url is %s", r.URL.RequestURI(), util.BrokerProxyURL, requestURL)
+	log.Infof("request route %s to proxy %v\n\tmethod %v destination url is %s", r.URL.RequestURI(), util.BrokerProxyURL, r.Method, requestURL)
 
 	body, err := ioutil.ReadAll(r.Body)
 	if body != nil {
-		r.Body.Close()
+		defer r.Body.Close()
 	}
 	if err != nil {
 		log.Infof("%s Error reading body: %v", requestURL, err)
@@ -263,9 +264,9 @@ func httpProxy(requestURL string, w http.ResponseWriter, r *http.Request) {
 		newRequest.Header = make(http.Header)
 	}
 	newRequest.Header = r.Header
-	newRequest.Header.Add("X-Forwarded-Host", r.Header.Get("Host"))
-	newRequest.Header.Add("X-Proxy", "burnell")
-	newRequest.Header.Add("Authorization", "Bearer "+util.Config.PulsarToken)
+	newRequest.Header.Set("X-Forwarded-Host", r.Header.Get("Host"))
+	newRequest.Header.Set("X-Proxy", "burnell")
+	newRequest.Header.Set("Authorization", "Bearer "+util.Config.PulsarToken)
 
 	client := &http.Client{
 		CheckRedirect: util.PreserveHeaderForRedirect,
