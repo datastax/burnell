@@ -519,10 +519,12 @@ func tenantFederatedPrometheus(tenant string, w http.ResponseWriter) {
 	data := metrics.FilterFederatedMetrics(tenant)
 	if len(data) > 1 {
 		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(data))
+	} else if policy.IsTenant(tenant) {
+		w.WriteHeader(http.StatusOK)
 	} else {
 		w.WriteHeader(http.StatusNotFound)
 	}
-	w.Write([]byte(data))
 }
 
 // PulsarFederatedDebugPrometheusHandler is for superrole to get individual tenant metrics
