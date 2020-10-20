@@ -115,6 +115,9 @@ func NewRouter() *mux.Router {
 	router.PathPrefix("/admin/v2/namespaces/{tenant}/{namespace}/schemaValidationEnforced").Methods(http.MethodPost).
 		Handler(AuthVerifyTenantJWT(http.HandlerFunc(NamespacePolicyProxyHandler)))
 
+	router.PathPrefix("/admin/v2/namespaces/{tenant}/{namespace}/deduplication").Methods(http.MethodPost).
+		Handler(AuthVerifyTenantJWT(http.HandlerFunc(DirectBrokerProxyHandler)))
+
 	router.PathPrefix("/admin/v2/namespaces/{tenant}/{namespace}/permissions/{role}").Methods(http.MethodPost, http.MethodDelete).
 		Handler(SuperRoleRequired(http.HandlerFunc(DirectBrokerProxyHandler)))
 	router.PathPrefix("/admin/v2/namespaces/{tenant}/{namespace}/persistence").Methods(http.MethodPost).
