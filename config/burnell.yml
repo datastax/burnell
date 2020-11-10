@@ -9,7 +9,7 @@ PulsarPrivateKey: ./unit-test/example_private_key
 PulsarToken: ""
 PulsarURL : "pulsar+ssl://useast1.gcp.kafkaesque.io:6651"
 FederatedPromURL: "http://localhost:9090/federate"
-SuperRoles: ""
+SuperRoles: "golanguser,anotheradmin"
 TenantManagmentTopic: "persistent://ming-luo/local-useast1-gcp/test-tenant-management"
 TrustStore: "/etc/ssl/certs/ca-bundle.crt"
 LogLevel: "debug"

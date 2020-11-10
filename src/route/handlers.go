@@ -58,6 +58,10 @@ func Init() {
 
 // TokenSubjectHandler issues new token
 func TokenSubjectHandler(w http.ResponseWriter, r *http.Request) {
+	if !util.IsPulsarJWTEnabled() {
+		w.WriteHeader(http.StatusNotImplemented)
+		return
+	}
 	vars := mux.Vars(r)
 	subject, ok := vars["sub"]
 	if !ok {

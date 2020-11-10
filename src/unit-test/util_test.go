@@ -73,3 +73,30 @@ func TestComputeDelta(t *testing.T) {
 	assert(t, 0 == ComputeDelta(7, 5, 0), "")
 	assert(t, 0 == ComputeDelta(7, 7, 0), "")
 }
+
+func TestLoadEmptyConfigFile(t *testing.T) {
+	os.Setenv("PORT", "9876543")
+	emptyFile, err := os.Create("empty.yaml")
+	errNil(t, err)
+	emptyFile.Close()
+	// ReadConfigFile("../" + DefaultConfigFile)
+	ReadConfigFile("./empty.yaml")
+	cfg := GetConfig()
+	assert(t, !IsPulsarJWTEnabled(), "pulsar JWT enabled from the config file")
+
+	assert(t, len(SuperRoles) == 1, "a list of SuperRoles")
+	assert(t, SuperRoles[0] == DummySuperRole, "verify the only role is the dummy super role")
+	assert(t, StrContains(SuperRoles, DummySuperRole), "")
+	assert(t, cfg.PORT == "9876543", "verify port is read from env")
+}
+
+func TestLoadConfigFile(t *testing.T) {
+	os.Setenv("PORT", "9876543")
+	ReadConfigFile("../" + DefaultConfigFile)
+	cfg := GetConfig()
+	assert(t, IsPulsarJWTEnabled(), "pulsar JWT enabled from the config file")
+
+	assert(t, len(SuperRoles) == 2, "a list of SuperRoles")
+	assert(t, StrContains(SuperRoles, "anotheradmin"), "")
+	assert(t, cfg.PORT == "9876543", "verify port is read from env")
+}

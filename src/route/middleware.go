@@ -18,6 +18,11 @@ var Rate = NewSema(200)
 // AuthVerifyJWT Authenticate middleware function that extracts the subject in JWT
 func AuthVerifyJWT(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !util.IsPulsarJWTEnabled() {
+			r.Header.Set(injectedSubs, util.DummySuperRole)
+			next.ServeHTTP(w, r)
+			return
+		}
 		tokenStr := strings.TrimSpace(strings.Replace(r.Header.Get("Authorization"), "Bearer", "", 1))
 		subjects, err := util.JWTAuth.GetTokenSubject(tokenStr)
 
@@ -35,6 +40,11 @@ func AuthVerifyJWT(next http.Handler) http.Handler {
 // AuthVerifyTenantJWT Authenticate middleware function that extracts the subject in JWT
 func AuthVerifyTenantJWT(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !util.IsPulsarJWTEnabled() {
+			r.Header.Set(injectedSubs, util.DummySuperRole)
+			next.ServeHTTP(w, r)
+			return
+		}
 		tokenStr := strings.TrimSpace(strings.Replace(r.Header.Get("Authorization"), "Bearer", "", 1))
 		subjects, err := util.JWTAuth.GetTokenSubject(tokenStr)
 
@@ -62,6 +72,11 @@ func AuthVerifyTenantJWT(next http.Handler) http.Handler {
 // SuperRoleRequired ensures token has the super user subject
 func SuperRoleRequired(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !util.IsPulsarJWTEnabled() {
+			r.Header.Set(injectedSubs, util.DummySuperRole)
+			next.ServeHTTP(w, r)
+			return
+		}
 		tokenStr := strings.TrimSpace(strings.Replace(r.Header.Get("Authorization"), "Bearer", "", 1))
 		subject, err := util.JWTAuth.GetTokenSubject(tokenStr)
 

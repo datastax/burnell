@@ -21,6 +21,9 @@ import (
 // it can be overwritten by env variable PULSAR_BEAM_CONFIG
 const DefaultConfigFile = "../config/burnell.yml"
 
+// DummySuperRole is used for all authorization needs when authentication is disabled
+const DummySuperRole = "DummySuperRole"
+
 // Configuration - this server's configuration
 type Configuration struct {
 	LogLevel         string `json:"logLevel"`
@@ -74,7 +77,9 @@ func Init() {
 
 	log.SetLevel(logLevel(Config.LogLevel))
 	log.Warnf("Configuration built from file - %s", configFile)
-	JWTAuth = icrypto.NewRSAKeyPair(Config.PulsarPrivateKey, Config.PulsarPublicKey)
+	if IsPulsarJWTEnabled() {
+		JWTAuth = icrypto.NewRSAKeyPair(Config.PulsarPrivateKey, Config.PulsarPublicKey)
+	}
 	var err error
 	BrokerProxyURL, err = url.ParseRequestURI(Config.BrokerProxyURL)
 	if err != nil {
@@ -85,10 +90,6 @@ func Init() {
 		panic(err)
 	}
 	AdminRestPrefix = Config.AdminRestPrefix
-
-	for _, v := range strings.Split(Config.SuperRoles, ",") {
-		SuperRoles = append(SuperRoles, strings.TrimSpace(v))
-	}
 }
 
 // ReadConfigFile reads configuration file.
@@ -130,6 +131,15 @@ func ReadConfigFile(configFile string) {
 		}
 	}
 
+	if IsPulsarJWTEnabled() {
+		SuperRoles = []string{}
+		for _, v := range strings.Split(Config.SuperRoles, ",") {
+			SuperRoles = append(SuperRoles, strings.TrimSpace(v))
+		}
+	} else {
+		SuperRoles = []string{DummySuperRole}
+	}
+
 	fmt.Printf("configuration loaded is %v", Config)
 }
 
@@ -163,4 +173,14 @@ func logLevel(level string) log.Level {
 	default:
 		return log.InfoLevel
 	}
+}
+
+// IsPulsarJWTEnabled evaluates if features related to Pulsar JWT is enabled or not
+// features include validate and generate Pulsar JWT, role based authorization
+func IsPulsarJWTEnabled() bool {
+	c := GetConfig()
+	if c.PulsarPublicKey == c.PulsarPrivateKey && c.PulsarPrivateKey == c.SuperRoles {
+		return false
+	}
+	return true
 }
