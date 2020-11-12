@@ -184,8 +184,6 @@ The new offset and total will be returned in the repsonse body.
 docker build -t burnell .
 ```
 
-docker tag kesque/burnell:1.1.0
-
 ### Docker for logcollector
 
 ```
