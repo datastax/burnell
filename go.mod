@@ -12,9 +12,11 @@ require (
 	github.com/golang/protobuf v1.4.2
 	github.com/google/gops v0.3.10
 	github.com/gorilla/mux v1.7.3
+	github.com/gorilla/websocket v1.4.2
 	github.com/hashicorp/go-memdb v1.2.1
 	github.com/kafkaesque-io/pulsar-beam v0.0.2-0.20200625184507-0224e63558e6
 	github.com/klauspost/compress v1.10.8
+	github.com/koding/websocketproxy v0.0.0-20181220232114-7ed82d81a28c
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/pierrec/lz4 v2.0.5+incompatible
 	github.com/pkg/errors v0.9.1

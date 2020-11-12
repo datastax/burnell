@@ -28,6 +28,7 @@ const DummySuperRole = "DummySuperRole"
 type Configuration struct {
 	LogLevel         string `json:"logLevel"`
 	PORT             string `json:"PORT"`
+	WebsocketURL     string `json:"WebsocketURL"`
 	BrokerProxyURL   string `json:"BrokerProxyURL"`
 	FunctionProxyURL string `json:"FunctionProxyURL"`
 	AdminRestPrefix  string `json:"AdminRestPrefix"`

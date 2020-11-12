@@ -88,8 +88,8 @@ func Init() {
 
 	url := util.Config.FederatedPromURL
 	interval := time.Duration(util.GetEnvInt("ScrapeFederatedPromIntervalSeconds", 35)) * time.Second
-	logger.Infof("Federated Prometheus URL %s at interval %v\n", url, interval)
 	if url != "" {
+		logger.Infof("Federated Prometheus URL %s at interval %v", url, interval)
 		go func(promURL string) {
 			Scrape(promURL)
 			ticker := time.NewTicker(interval)
@@ -113,6 +113,7 @@ func Init() {
 			}
 		}()
 	}
+	logger.Infof("Federated Prometheus scraping is not set up")
 }
 
 // InitUsageDbTable initializes usage db table.

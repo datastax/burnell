@@ -1,0 +1,15 @@
+---
+PORT: 8964
+ClusterName: 
+BrokerProxyURL: 
+FunctionProxyURL: 
+AdminRestPrefix: "/admin/v2"
+PulsarPublicKey:
+PulsarPrivateKey:
+PulsarToken:
+PulsarURL :
+FederatedPromURL:
+SuperRoles:
+TenantManagmentTopic: "persistent://ming-luo/local-useast1-gcp/test-tenant-management"
+TrustStore: ""
+LogLevel: "debug"

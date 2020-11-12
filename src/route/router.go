@@ -19,6 +19,8 @@ func NewRouter() *mux.Router {
 
 	router.Path("/liveness").Methods(http.MethodGet).Name("liveness").Handler(NoAuth(Logger(http.HandlerFunc(StatusPage), "liveness")))
 	router.Path("/subject/{sub}").Methods(http.MethodGet).Name("token server").Handler(SuperRoleRequired(Logger(http.HandlerFunc(TokenSubjectHandler), "token server")))
+	router.PathPrefix("/ws/").Name("websocket proxy proxy").
+		Handler(http.HandlerFunc(WebsocketAuthProxyHandler))
 	router.Path("/metrics").Methods(http.MethodGet).Name("metrics").Handler(NoAuth(promhttp.Handler()))
 	router.Path("/tenantsusage").Methods(http.MethodGet).Name("tenants usage").Handler(SuperRoleRequired(http.HandlerFunc(TenantUsageHandler)))
 	router.Path("/namespacesusage/{tenant}").Methods(http.MethodGet).Name("tenant namespaces usage").Handler(AuthVerifyTenantJWT(http.HandlerFunc(TenantUsageHandler)))

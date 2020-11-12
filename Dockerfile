@@ -25,7 +25,7 @@ RUN mkdir /root/config/
 
 # Copy the Pre-built binary file and default configuraitons from the previous stage
 COPY --from=builder /root/src/burnell /root/bin
-COPY --from=builder /root/config/burnell.yml /root/config/burnell.yml
+COPY --from=builder /root/config/burnell.yml.template /root/config/burnell.yml
 COPY --from=builder /root/src/unit-test/example_p* /root/config/
 
 # Copy debug tools
