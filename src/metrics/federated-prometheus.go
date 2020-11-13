@@ -195,14 +195,18 @@ func AllNamespaceMetrics() string {
 
 // Scrape scrapes the federated prometheus endpoint
 func Scrape(url string) {
+	c := scrapeJob(url+"/?match[]={job=~\"broker.*\"}") + scrapeJob(url+"/?match[]={job=~\"function.*\"}")
+	SetCache(c)
+}
+func scrapeJob(url string) string {
 	client := &http.Client{Timeout: 600 * time.Second}
 
 	// All prometheus jobs
 	// req, err := http.NewRequest("GET", url+"/?match[]={__name__=~\"..*\"}", nil)
-	req, err := http.NewRequest("GET", url+"/?match[]={job=~\"broker.*\"}", nil)
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		logger.Errorf("url request error %s", err.Error())
-		return
+		return ""
 	}
 
 	resp, err := client.Do(req)
@@ -211,18 +215,17 @@ func Scrape(url string) {
 	}
 	if err != nil {
 		logger.Errorf("broker stats collection error %s", err.Error())
-		return
+		return ""
 	}
 
 	bodyBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return
+		return ""
 	}
 
 	c := string(bodyBytes)
-	SetCache(c)
-
 	logger.Infof("prometheus url %s resp status code %d cach size %d", url, resp.StatusCode, len(c))
+	return c
 }
 
 // BuildTenantUsage builds the tenant usage
