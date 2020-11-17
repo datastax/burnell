@@ -10,7 +10,17 @@ Burnell is a Pulsar proxy. It offers the following features.
 - [x] Interface to query function logs
 - [x] Pulsar Beam webhook and topic management REST API
 - [x] Tenants and tenant's namespace usage metering, total bytes and message in and out
+- [x] Initializer mode to configure Pulsar Kubernete cluster TLS keys and JWT
+- [x] Healer mode to repair Pulsar Kubernete cluster TLS keys and JWT
 - [ ] Proxy Pulsar TCP protocol
+
+## Process running mode
+```
+burnell -mode init
+burnell -mode healer
+burnell -mode proxy
+```
+The default process mode is `proxy`
 
 ## Rest API
 

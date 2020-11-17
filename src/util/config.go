@@ -33,6 +33,7 @@ type Configuration struct {
 	FunctionProxyURL string `json:"FunctionProxyURL"`
 	AdminRestPrefix  string `json:"AdminRestPrefix"`
 	ClusterName      string `json:"ClusterName"`
+	PulsarNamespace  string `json:"PulsarNamespace"`
 
 	PulsarPublicKey  string `json:"PulsarPublicKey"`
 	PulsarPrivateKey string `json:"PulsarPrivateKey"`
@@ -78,10 +79,13 @@ func Init() {
 
 	log.SetLevel(logLevel(Config.LogLevel))
 	log.Warnf("Configuration built from file - %s", configFile)
-	if IsPulsarJWTEnabled() {
-		JWTAuth = icrypto.NewRSAKeyPair(Config.PulsarPrivateKey, Config.PulsarPublicKey)
-	}
 	var err error
+	if IsPulsarJWTEnabled() {
+		JWTAuth, err = icrypto.LoadRSAKeyPair(Config.PulsarPrivateKey, Config.PulsarPublicKey)
+		if err != nil {
+			panic(err)
+		}
+	}
 	BrokerProxyURL, err = url.ParseRequestURI(Config.BrokerProxyURL)
 	if err != nil {
 		panic(err)

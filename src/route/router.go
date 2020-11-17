@@ -9,9 +9,19 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
+// HealerRouter creates http routes for healer running mode
+func HealerRouter() *mux.Router {
+	log.Warnf("set up healer routes")
+
+	router := mux.NewRouter().StrictSlash(true)
+
+	router.Path("/metrics").Methods(http.MethodGet).Name("metrics").Handler(NoAuth(promhttp.Handler()))
+	return router
+}
+
 // NewRouter - create new router for HTTP routing
 func NewRouter() *mux.Router {
-	log.Warnf("init routes")
+	log.Warnf("set up proxy routes")
 
 	router := mux.NewRouter().StrictSlash(true)
 

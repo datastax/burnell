@@ -1,10 +1,13 @@
 package main
 
 import (
-	"log"
+	"flag"
+	"os"
 	"runtime"
 
+	"github.com/apex/log"
 	"github.com/google/gops/agent"
+	"github.com/gorilla/mux"
 	"github.com/rs/cors"
 
 	"github.com/kafkaesque-io/burnell/src/logclient"
@@ -12,6 +15,7 @@ import (
 	"github.com/kafkaesque-io/burnell/src/policy"
 	"github.com/kafkaesque-io/burnell/src/route"
 	"github.com/kafkaesque-io/burnell/src/util"
+	"github.com/kafkaesque-io/burnell/src/workflow"
 	httptls "github.com/kafkaesque-io/pulsar-beam/src/util"
 )
 
@@ -25,9 +29,31 @@ func main() {
 		log.Fatalf("gops instrument error %v", err)
 	}
 
+	modePtr := flag.String("mode", util.Proxy, "process running mode: proxy(default), init, healer")
+	flag.Parse()
+	mode := util.AssignString(os.Getenv("ProcessMode"), *modePtr)
+	log.Warnf("process running mode %s", mode)
+
 	util.Init()
-	route.Init()
-	metrics.Init()
+	config := util.GetConfig()
+
+	var router *mux.Router
+	if util.IsInitializer(&mode) {
+		log.Infof("initiliazer")
+		// run once for initialization and exit
+		workflow.ConfigKeysJWTs(true)
+		return
+	} else if util.IsHealer(&mode) {
+		router = route.HealerRouter()
+		workflow.ConfigKeysJWTs(false)
+	} else { //default proxy mode
+		route.Init()
+		metrics.Init()
+
+		router = route.NewRouter()
+		logclient.FunctionTopicWatchDog()
+		policy.Initialize()
+	}
 
 	c := cors.New(cors.Options{
 		AllowedOrigins:   []string{"http://localhost:3000", "http://localhost:8080"},
@@ -35,16 +61,14 @@ func main() {
 		AllowedHeaders:   []string{"Authorization", "PulsarTopicUrl"},
 	})
 
-	router := route.NewRouter()
-
 	handler := c.Handler(router)
-	config := util.GetConfig()
 
-	logclient.FunctionTopicWatchDog()
-	policy.Initialize()
 	certFile := util.GetConfig().CertFile
 	keyFile := util.GetConfig().KeyFile
 	port := util.AssignString(config.PORT, "8080")
-	log.Fatal(httptls.ListenAndServeTLS(":"+port, certFile, keyFile, handler))
+	err := httptls.ListenAndServeTLS(":"+port, certFile, keyFile, handler)
+	if err != nil {
+		log.Fatal(err.Error())
+	}
 
 }

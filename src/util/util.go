@@ -196,3 +196,20 @@ func ComputeDelta(last, current, defaultValue uint64) uint64 {
 	}
 	return current - last
 }
+
+// StringToNewFile write string text to a new file
+func StringToNewFile(filePath, text string) error {
+	f, err := os.Create(filePath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = f.WriteString(text)
+	if err != nil {
+		return err
+	}
+	f.Sync()
+
+	return nil
+}

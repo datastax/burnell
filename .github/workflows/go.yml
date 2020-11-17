@@ -59,7 +59,12 @@ jobs:
         run : |
           cd src/unit-test
           go test
-
+      - name: Pulsar token validation
+        run : |
+          ls /tmp
+          sudo docker run -v /tmp:/tmp apachepulsar/pulsar:2.6.1 bin/pulsar tokens create --secret-key /tmp/unitest-keypair-private.key --subject test-user
+          sudo docker run -v /tmp:/tmp apachepulsar/pulsar:2.6.1 bin/pulsar tokens show -f /tmp/myadmin.jwt
+          sudo docker run -v /tmp:/tmp apachepulsar/pulsar:2.6.1 bin/pulsar tokens validate -pk /tmp/unitest-keypair-public.key -f /tmp/myadmin.jwt | grep '{sub=myadmin}'
   docker:
     name: docker
     runs-on: ubuntu-latest 

@@ -29,4 +29,9 @@ require (
 	github.com/valyala/gozstd v1.7.0 // indirect
 	google.golang.org/grpc v1.28.0
 	google.golang.org/protobuf v1.23.0
+	gopkg.in/yaml.v2 v2.3.0
+	k8s.io/api v0.18.5
+	k8s.io/apimachinery v0.18.5
+	k8s.io/client-go v0.18.5
+	k8s.io/metrics v0.18.5
 )

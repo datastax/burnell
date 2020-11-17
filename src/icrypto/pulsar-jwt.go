@@ -4,13 +4,15 @@ package icrypto
 
 import (
 	"bufio"
+	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/binary"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"time"
 
@@ -19,27 +21,155 @@ import (
 
 // RSAKeyPair for JWT token sign and verification
 type RSAKeyPair struct {
-	PrivateKey *rsa.PrivateKey
-	PublicKey  *rsa.PublicKey
+	PrivateKey           *rsa.PrivateKey
+	PublicKey            *rsa.PublicKey
+	PrivateKeyPKCS8Bytes []byte
+	PublicKeyPKIXBytes   []byte
 }
 
 const (
 	tokenDuration = 24
 	expireOffset  = 3600
+	bitSize       = 2048
 )
 
 var jwtRsaKeys *RSAKeyPair
 
 // NewRSAKeyPair creates a pair of RSA key for JWT token sign and verification
-func NewRSAKeyPair(privateKeyPath, publicKeyPath string) *RSAKeyPair {
-	if jwtRsaKeys == nil {
-		jwtRsaKeys = &RSAKeyPair{
-			PrivateKey: getPrivateKey(privateKeyPath),
-			PublicKey:  getPublicKey(publicKeyPath),
-		}
+func NewRSAKeyPair() (*RSAKeyPair, error) {
+	reader := rand.Reader
+	privateKey, err := rsa.GenerateKey(reader, bitSize)
+	if err != nil {
+		return nil, err
 	}
 
-	return jwtRsaKeys
+	err = privateKey.Validate()
+	if err != nil {
+		return nil, err
+	}
+
+	return newRSAKeyPair(privateKey, &privateKey.PublicKey)
+}
+
+// LoadRSAKeyPair loads existing RSA key pair
+func LoadRSAKeyPair(privateKeyPath, publicKeyPath string) (*RSAKeyPair, error) {
+	privateKey, err := getPrivateKey(privateKeyPath)
+	if err != nil {
+		return nil, err
+	}
+	publicKey, err := getPublicKey(publicKeyPath)
+	if err != nil {
+		return nil, err
+	}
+
+	return newRSAKeyPair(privateKey, publicKey)
+}
+
+// LoadRSAKeyPairFromBase64 loads existing RSA key pair based on base64 []byte
+func LoadRSAKeyPairFromBase64(privateKeyBase64, publicKeyBase64 []byte) (*RSAKeyPair, error) {
+	privateKey, err := ParseX509PKCS8PrivateKey(privateKeyBase64)
+	if err != nil {
+		return nil, err
+	}
+
+	publicKey, err := ParseX509PKIXPublicKey(publicKeyBase64)
+	if err != nil {
+		return nil, err
+	}
+	return newRSAKeyPair(privateKey, publicKey)
+}
+
+func newRSAKeyPair(privateKey *rsa.PrivateKey, publicKey *rsa.PublicKey) (*RSAKeyPair, error) {
+	privateKeyBytes, err := x509.MarshalPKCS8PrivateKey(privateKey)
+	if err != nil {
+		return nil, err
+	}
+	publicKeyBytes, err := x509.MarshalPKIXPublicKey(publicKey)
+	if err != nil {
+		return nil, err
+	}
+	// private key is valid at this point
+	return &RSAKeyPair{
+		PrivateKey:           privateKey,
+		PublicKey:            publicKey,
+		PrivateKeyPKCS8Bytes: privateKeyBytes,
+		PublicKeyPKIXBytes:   publicKeyBytes,
+	}, nil
+}
+
+// ExportRSAPublicKeyAsPEM exports RSA public key in PEM format as string
+func (keys *RSAKeyPair) ExportRSAPublicKeyAsPEM() string {
+	publicKeyPEM := pem.EncodeToMemory(
+		&pem.Block{
+			Bytes: keys.PublicKeyPKIXBytes,
+		},
+	)
+
+	return string(publicKeyPEM)
+}
+
+// ExportRSAPrivateKeyAsPEM exports RSA private key in PEM format as string
+func (keys *RSAKeyPair) ExportRSAPrivateKeyAsPEM() string {
+	privateKeyPEM := pem.EncodeToMemory(
+		&pem.Block{
+			Bytes: keys.PrivateKeyPKCS8Bytes,
+		},
+	)
+
+	return string(privateKeyPEM)
+}
+
+// ExportPrivateKeyBinaryBase64 exports RSA private key in binary as base64 format
+func (keys *RSAKeyPair) ExportPrivateKeyBinaryBase64() string {
+	return base64.StdEncoding.EncodeToString(keys.PrivateKeyPKCS8Bytes)
+}
+
+// ExportPublicKeyBinaryBase64 exports RSA public key in binary as base64 format
+func (keys *RSAKeyPair) ExportPublicKeyBinaryBase64() string {
+	return base64.StdEncoding.EncodeToString(keys.PublicKeyPKIXBytes)
+}
+
+// ExportRSAPublicKeyBinaryFile exports RSA public key PEM file
+func (keys *RSAKeyPair) ExportRSAPublicKeyBinaryFile(filePath string) error {
+	pemfile, err := os.Create(filePath)
+	if err != nil {
+		return err
+	}
+	defer pemfile.Close()
+
+	err = binary.Write(pemfile, binary.LittleEndian, keys.PublicKeyPKIXBytes)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// ExportRSAPrivateKeyBinaryFile exports RSA private key PEM file
+func (keys *RSAKeyPair) ExportRSAPrivateKeyBinaryFile(filePath string) error {
+	pemfile, err := os.Create(filePath)
+	if err != nil {
+		return err
+	}
+	defer pemfile.Close()
+
+	// Private key in PEM format
+	err = binary.Write(pemfile, binary.LittleEndian, keys.PrivateKeyPKCS8Bytes)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// writePemToFile writes keys to a file
+func writeKeyToFile(keyBytes []byte, saveFileTo string) error {
+	err := ioutil.WriteFile(saveFileTo, keyBytes, 0666)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // GenerateToken generates token with user defined subject
@@ -60,7 +190,7 @@ func (keys *RSAKeyPair) GenerateToken(userSubject string) (string, error) {
 // DecodeToken decodes a token string
 func (keys *RSAKeyPair) DecodeToken(tokenStr string) (*jwt.Token, error) {
 	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
-		return jwtRsaKeys.PublicKey, nil
+		return keys.PublicKey, nil
 	})
 
 	if err != nil {
@@ -148,34 +278,34 @@ func decodePEM(pemFilePath string) ([]byte, error) {
 	return data.Bytes, err
 }
 
-func parseX509PKCS8PrivateKey(data []byte) *rsa.PrivateKey {
+// ParseX509PKCS8PrivateKey creates rsa.PrivateKey based on byte data
+func ParseX509PKCS8PrivateKey(data []byte) (*rsa.PrivateKey, error) {
 	key, err := x509.ParsePKCS8PrivateKey(data)
-
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	rsaPrivate, ok := key.(*rsa.PrivateKey)
 	if !ok {
-		log.Fatalf("expected key to be of type *ecdsa.PrivateKey, but actual was %T", key)
+		return nil, fmt.Errorf("expected key to be of type *rsa.PrivateKey, but actual was %T", key)
 	}
 
-	return rsaPrivate
+	return rsaPrivate, nil
 }
 
-func parseX509PKIXPublicKey(data []byte) *rsa.PublicKey {
+// ParseX509PKIXPublicKey creates rsa.PublicKey based on byte data
+func ParseX509PKIXPublicKey(data []byte) (*rsa.PublicKey, error) {
 	publicKeyImported, err := x509.ParsePKIXPublicKey(data)
-
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	rsaPub, ok := publicKeyImported.(*rsa.PublicKey)
 	if !ok {
-		panic(err)
+		return nil, fmt.Errorf("expected key to be of type *rsa.PublicKey, but actual was %T", publicKeyImported)
 	}
 
-	return rsaPub
+	return rsaPub, nil
 }
 
 // Since we support PEM And binary fomat of PKCS12/X509 keys,
@@ -219,26 +349,27 @@ func getDataFromKeyFile(file string) ([]byte, error) {
 	case "PEM":
 		return decodePEM(file)
 	case "PKCS12":
+		fmt.Println("PKCS12")
 		return readPK12(file)
 	default:
 		return nil, errors.New("unsupported format")
 	}
 }
 
-func getPrivateKey(file string) *rsa.PrivateKey {
+func getPrivateKey(file string) (*rsa.PrivateKey, error) {
 	data, err := getDataFromKeyFile(file)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
-	return parseX509PKCS8PrivateKey(data)
+	return ParseX509PKCS8PrivateKey(data)
 }
 
-func getPublicKey(file string) *rsa.PublicKey {
+func getPublicKey(file string) (*rsa.PublicKey, error) {
 	data, err := getDataFromKeyFile(file)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
-	return parseX509PKIXPublicKey(data)
+	return ParseX509PKIXPublicKey(data)
 }
