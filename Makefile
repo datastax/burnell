@@ -14,7 +14,7 @@
 
 all: push
 
-TAG ?= 1.2.57
+TAG ?= 1.2.62
 PREFIX ?= kesque/burnell
 
 container:

@@ -73,12 +73,15 @@ var AdminRestPrefix string
 var SuperRoles []string
 
 // Init initializes configuration
-func Init() {
+func Init(mode *string) {
 	configFile := AssignString(os.Getenv("BURNELL_CONFIG"), DefaultConfigFile)
 	ReadConfigFile(configFile)
 
 	log.SetLevel(logLevel(Config.LogLevel))
 	log.Warnf("Configuration built from file - %s", configFile)
+	if IsInitializer(mode) || IsHealer(mode) {
+		return
+	}
 	var err error
 	if IsPulsarJWTEnabled() {
 		JWTAuth, err = icrypto.LoadRSAKeyPair(Config.PulsarPrivateKey, Config.PulsarPublicKey)
@@ -145,7 +148,7 @@ func ReadConfigFile(configFile string) {
 		SuperRoles = []string{DummySuperRole}
 	}
 
-	fmt.Printf("configuration loaded is %v", Config)
+	log.Infof("configuration loaded is %v", Config)
 }
 
 //GetConfig returns a reference to the Configuration

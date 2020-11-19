@@ -204,7 +204,7 @@ func (kj *KeysJWTs) Create(k8sNamespace, accountName string) error {
 	kj.PrivateKeyBinary = kj.KeyManager.ExportPrivateKeyBinaryBase64()
 	kj.PublicKeyBinary = kj.KeyManager.ExportPublicKeyBinaryBase64()
 
-	for _, v := range defaultRoleString {
+	for _, v := range getAdminRoles() {
 		role := strings.TrimSpace(v)
 		tokenString, err := kj.KeyManager.GenerateToken(role)
 		if err != nil {
@@ -237,7 +237,7 @@ func (kj *KeysJWTs) Create(k8sNamespace, accountName string) error {
 
 // Repair creates new keys or JWTs if any one of them are missing
 func (kj *KeysJWTs) Repair(k8sNamespace, clusterName string) error {
-	for _, v := range defaultRoleString {
+	for _, v := range getAdminRoles() {
 		role := strings.TrimSpace(v)
 		tokenString, err := kj.KeyManager.GenerateToken(role)
 		if err != nil {
@@ -307,4 +307,16 @@ func ConfigKeysJWTs(setupOnce bool) {
 		}
 	}(cfg.ClusterName, pulsarNs)
 
+}
+
+func getAdminRoles() []string {
+	roleStr := util.GetConfig().SuperRoles
+	if roleStr == "" {
+		return defaultRoleString
+	}
+	roles := []string{}
+	for _, v := range strings.Split(roleStr, ",") {
+		roles = append(roles, strings.TrimSpace(v))
+	}
+	return roles
 }

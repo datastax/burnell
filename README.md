@@ -24,6 +24,14 @@ The default process mode is `proxy`
 
 ## Rest API
 
+### Generate user token
+A super user role's JWT must be specified in the `Authorization` header as `Bearer` token in the `GET` method with this route
+
+```
+/subject/{user-subject}
+```
+Allowed characters for user subject are alphanumeric and hyphen.
+
 ### Tenant function log retrieval
 It is a rolling log retrieval from the function worker.
 

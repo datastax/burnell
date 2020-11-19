@@ -34,7 +34,7 @@ func main() {
 	mode := util.AssignString(os.Getenv("ProcessMode"), *modePtr)
 	log.Warnf("process running mode %s", mode)
 
-	util.Init()
+	util.Init(&mode)
 	config := util.GetConfig()
 
 	var router *mux.Router
