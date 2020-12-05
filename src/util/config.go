@@ -26,14 +26,16 @@ const DummySuperRole = "DummySuperRole"
 
 // Configuration - this server's configuration
 type Configuration struct {
-	LogLevel         string `json:"logLevel"`
-	PORT             string `json:"PORT"`
-	WebsocketURL     string `json:"WebsocketURL"`
-	BrokerProxyURL   string `json:"BrokerProxyURL"`
-	FunctionProxyURL string `json:"FunctionProxyURL"`
-	AdminRestPrefix  string `json:"AdminRestPrefix"`
-	ClusterName      string `json:"ClusterName"`
-	PulsarNamespace  string `json:"PulsarNamespace"`
+	LogLevel             string `json:"logLevel"`
+	PORT                 string `json:"PORT"`
+	WebsocketURL         string `json:"WebsocketURL"`
+	BrokerProxyURL       string `json:"BrokerProxyURL"`
+	FunctionProxyURL     string `json:"FunctionProxyURL"`
+	AdminRestPrefix      string `json:"AdminRestPrefix"`
+	ClusterName          string `json:"ClusterName"`
+	PulsarNamespace      string `json:"PulsarNamespace"`
+	PrivateKeySecretName string `json:"PrivateKeySecretName"`
+	PublicKeySecretName  string `json:"PublicKeySecretName"`
 
 	PulsarPublicKey  string `json:"PulsarPublicKey"`
 	PulsarPrivateKey string `json:"PulsarPrivateKey"`
@@ -47,6 +49,7 @@ type Configuration struct {
 
 	FederatedPromURL      string `json:"FederatedPromURL"`
 	FederatedPromInterval string `json:"FederatedPromInterval"`
+	TenantsUsageDisabled  bool   `json:"TenantsUsageDisabled"`
 
 	TenantManagmentTopic string `json:"TenantManagmentTopic"`
 	PulsarBeamTopic      string `json:"PulsarBeamTopic"`

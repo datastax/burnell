@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	jwt "github.com/dgrijalva/jwt-go"
 	. "github.com/kafkaesque-io/burnell/src/icrypto"
 )
 
@@ -14,7 +15,7 @@ func TestRSAKeyPair(t *testing.T) {
 	errNil(t, err)
 
 	// authen := LoadRSAKeyPair(privKey, publicKey)
-	tokenString, err := authen.GenerateToken("myadmin")
+	tokenString, err := authen.GenerateToken("myadmin", 5*time.Hour, jwt.SigningMethodRS256)
 	errNil(t, err)
 	fmt.Printf("%s", tokenString)
 
@@ -32,12 +33,34 @@ func TestRSAKeyPair(t *testing.T) {
 
 	keyPairAuth, err := LoadRSAKeyPair(privateKeyPath, publicKeyPath)
 	errNil(t, err)
-	tokenString2, err := keyPairAuth.GenerateToken("myadmin")
+	tokenString2, err := keyPairAuth.GenerateToken("myadmin", 5*time.Hour, jwt.SigningMethodRS256)
 	errNil(t, err)
 	assert(t, tokenString == tokenString2, "two tokens must be identical")
 
 	// save token to a file for pulsar cli validation
 	err = ioutil.WriteFile("/tmp/myadmin.jwt", []byte(tokenString2), 0644)
+	errNil(t, err)
+
+	exp, signingMethod, err := ValidateClaims("1y", "rs512")
+	errNil(t, err)
+	assert(t, exp == 365*24*time.Hour, "")
+	assert(t, signingMethod == jwt.SigningMethodRS512, "")
+	exp, signingMethod, err = ValidateClaims("62d", "hs256")
+	errNil(t, err)
+	assert(t, exp == 62*24*time.Hour, "")
+	assert(t, signingMethod == jwt.SigningMethodHS256, "")
+
+	tokenString3, err := keyPairAuth.GenerateToken("exp-token", exp, jwt.SigningMethodRS256)
+	errNil(t, err)
+
+	// save token to a file for pulsar cli validation
+	err = ioutil.WriteFile("/tmp/exp-token.jwt", []byte(tokenString3), 0644)
+	errNil(t, err)
+
+	// generate token with no expiry duration
+	tokenString, err = keyPairAuth.GenerateToken("noexpiry", 0*time.Second, jwt.SigningMethodRS256)
+	errNil(t, err)
+	err = ioutil.WriteFile("/tmp/noexpiry.jwt", []byte(tokenString), 0644)
 	errNil(t, err)
 	// pulsar token command to validate these TLS keys
 	// docker run -it -v /tmp:/tmp apachepulsar/pulsar:2.6.1 bin/pulsar token create --secret-key /tmp/unitest-keypair-private.key --subject test-user
@@ -55,7 +78,15 @@ func TestJWTRSASignAndVerifyWithPEMKey(t *testing.T) {
 	authen, err := LoadRSAKeyPair(privateKeyPath, publicKeyPath)
 	errNil(t, err)
 
-	tokenString, err := authen.GenerateToken("millet")
+	_, _, err = ValidateClaims("4m", "rs256")
+	errNil(t, err)
+	_, _, err = ValidateClaims("4hr", "hs256")
+	assert(t, err != nil, "expected error for token expiry duration")
+	_, _, err = ValidateClaims("4h", "rsa256")
+	assert(t, err != nil, "expected error for signing method")
+	duration, sig, err := ValidateClaims("0m", "rs256")
+	errNil(t, err)
+	tokenString, err := authen.GenerateToken("millet", duration, sig)
 	errNil(t, err)
 	assert(t, len(tokenString) > 1, "a token string can be generated")
 

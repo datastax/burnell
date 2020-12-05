@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -42,6 +43,12 @@ type TopicPerBrokerUsage struct {
 	UpdatedAt        time.Time `json:"updatedAt"`
 }
 
+// TenantPromMetrics is a cache for Tenant Prometheus metrics data
+type TenantPromMetrics struct {
+	promData   []byte
+	updateTime time.Time
+}
+
 var (
 	// Everything is not threadsafe. We will run concurrency only if there are too many tenants and topics to process
 	// Everything runs sequentially.
@@ -50,7 +57,8 @@ var (
 	tenantsLock = sync.RWMutex{}
 
 	cacheLock = sync.RWMutex{}
-	cache     string // the the cache for raw prometheus data
+	// the the cache for raw prometheus data
+	cache = make(map[string]*TenantPromMetrics)
 )
 
 var tenantMetricNames = map[string]bool{
@@ -64,47 +72,50 @@ var tenantMetricNames = map[string]bool{
 var logger = log.WithFields(log.Fields{"app": "burnell,federated-prom-scraper"})
 
 // SetCache sets the federated prom cache
-func SetCache(c string) {
+func SetCache(tenant string, data []byte) {
 	cacheLock.Lock()
-	cache = c
+	cache[tenant] = &TenantPromMetrics{
+		updateTime: time.Now(),
+		promData:   data,
+	}
 	cacheLock.Unlock()
 }
 
 // GetCache gets the federated prom cache
-func GetCache() string {
+func GetCache(tenant string) ([]byte, error) {
 	cacheLock.RLock()
 	defer cacheLock.RUnlock()
-	return cache
+	if metrics, ok := cache[tenant]; ok {
+		if time.Since(metrics.updateTime) < scrapeInterval {
+			return metrics.promData, nil
+		}
+	}
+	return nil, fmt.Errorf("error")
 }
 
 var usageDb *memdb.MemDB
 
 const (
 	usageDbTable = "topic-usage"
+
+	scrapeInterval = 60 * time.Second
+
+	// SuperRole is a tenant name used to track access to Prometheus metrics
+	SuperRole = "SuperRole"
 )
 
 // Init initializes
 func Init() {
 
 	url := util.Config.FederatedPromURL
-	interval := time.Duration(util.GetEnvInt("ScrapeFederatedPromIntervalSeconds", 35)) * time.Second
-	if url != "" {
+	interval := time.Duration(util.GetEnvInt("ScrapeFederatedPromIntervalSeconds", 60)) * time.Second
+	if url != "" && !util.Config.TenantsUsageDisabled {
 		logger.Infof("Federated Prometheus URL %s at interval %v", url, interval)
-		go func(promURL string) {
-			Scrape(promURL)
-			ticker := time.NewTicker(interval)
-			for {
-				select {
-				case <-ticker.C:
-					Scrape(promURL)
-				}
-			}
-		}(url)
-
 		go func() {
 			InitUsageDbTable()
 			logger.Infof("Build tenant usage")
-			ticker := time.NewTicker(120 * time.Second)
+			BuildTenantUsage()
+			ticker := time.NewTicker(5 * interval)
 			for {
 				select {
 				case <-ticker.C:
@@ -112,8 +123,9 @@ func Init() {
 				}
 			}
 		}()
+	} else {
+		logger.Infof("Tenant usage calculation based on federated Prometheus scraping is not set up")
 	}
-	logger.Infof("Federated Prometheus scraping is not set up")
 }
 
 // InitUsageDbTable initializes usage db table.
@@ -157,9 +169,9 @@ func InitUsageDbTable() error {
 }
 
 // FilterFederatedMetrics collects the metrics the subject is allowed to access
-func FilterFederatedMetrics(subject string) string {
+func FilterFederatedMetrics(byteData []byte, subject string) string {
 	var str strings.Builder
-	scanner := bufio.NewScanner(strings.NewReader(GetCache()))
+	scanner := bufio.NewScanner(strings.NewReader(string(byteData)))
 
 	pattern := fmt.Sprintf(`.*,namespace="%s.*`, subject)
 	typeDefPattern := fmt.Sprintf(`^# TYPE .*`)
@@ -188,25 +200,37 @@ func FilterFederatedMetrics(subject string) string {
 	return str.String()
 }
 
-// AllNamespaceMetrics returns all namespace metrics on the brokers
-func AllNamespaceMetrics() string {
-	return GetCache()
+// GetTenantPromMetrics gets tenant prometheus metrics
+func GetTenantPromMetrics(tenant string) ([]byte, error) {
+	if data, err := GetCache(tenant); err == nil {
+		return data, nil
+	}
+
+	var url string
+	baseURL := util.Config.FederatedPromURL
+	if tenant == SuperRole {
+		url = baseURL + "/?match[]={job=~\"broker.*\"}"
+	} else {
+		url = fmt.Sprintf("%s/?match[]={namespace=~\"%s/.*\"}", baseURL, tenant)
+	}
+	data, err := scrapeJob(url)
+	if err == nil {
+		SetCache(tenant, data)
+		return data, nil
+	}
+	return nil, err
 }
 
-// Scrape scrapes the federated prometheus endpoint
-func Scrape(url string) {
-	c := scrapeJob(url+"/?match[]={job=~\"broker.*\"}") + scrapeJob(url+"/?match[]={job=~\"function.*\"}")
-	SetCache(c)
-}
-func scrapeJob(url string) string {
+// scrapeJob(url+"/?match[]={job=~\"broker.*\"}") + scrapeJob(url+"/?match[]={job=~\"function.*\"}")
+
+func scrapeJob(url string) ([]byte, error) {
 	client := &http.Client{Timeout: 600 * time.Second}
 
 	// All prometheus jobs
 	// req, err := http.NewRequest("GET", url+"/?match[]={__name__=~\"..*\"}", nil)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		logger.Errorf("url request error %s", err.Error())
-		return ""
+		return nil, err
 	}
 
 	resp, err := client.Do(req)
@@ -215,22 +239,23 @@ func scrapeJob(url string) string {
 	}
 	if err != nil {
 		logger.Errorf("broker stats collection error %s", err.Error())
-		return ""
+		return nil, err
+	}
+	if resp.StatusCode > 299 {
+		return nil, fmt.Errorf("failure status code %v", resp.StatusCode)
 	}
 
-	bodyBytes, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return ""
-	}
-
-	c := string(bodyBytes)
-	logger.Infof("prometheus url %s resp status code %d cach size %d", url, resp.StatusCode, len(c))
-	return c
+	return ioutil.ReadAll(resp.Body)
 }
 
 // BuildTenantUsage builds the tenant usage
 func BuildTenantUsage() {
-	ioReader := strings.NewReader(GetCache())
+	byteData, err := GetTenantPromMetrics(SuperRole)
+	if err != nil {
+		logger.Errorf("failed to acquire the federated prometheus metrics error : %v", err)
+		return
+	}
+	ioReader := bytes.NewReader(byteData)
 	parser := expfmt.TextParser{}
 	metricFamilies, err := parser.TextToMetricFamilies(ioReader)
 	if err != nil {

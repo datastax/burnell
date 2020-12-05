@@ -11,13 +11,13 @@ import (
 )
 
 func TestFederatedPromProcess(t *testing.T) {
-	dat, err := ioutil.ReadFile("./federated-prom.dat")
+	dat, err := ioutil.ReadFile("./tenantusage.dat")
 	errNil(t, err)
 
-	SetCache(string(dat))
-	rc := FilterFederatedMetrics("victor")
+	SetCache("victor", dat)
+	rc := FilterFederatedMetrics(dat, "victor")
 	parts := strings.Split(rc, "\n")
-	equals(t, 19, len(parts))
+	equals(t, 1, len(parts))
 	typeDefPattern := fmt.Sprintf(`^# TYPE .*`)
 	count := 0
 	for _, v := range parts {
@@ -26,16 +26,15 @@ func TestFederatedPromProcess(t *testing.T) {
 			count++
 		}
 	}
-	assert(t, 4 == count, "the number of type definition expected")
+	assert(t, 0 == count, "the number of type definition expected")
 
 }
 
 func TestTenantUsage(t *testing.T) {
 	dat, err := ioutil.ReadFile("./tenantusage.dat")
-	// dat, err := ioutil.ReadFile("./useast2-aws.dat")
 	errNil(t, err)
 
-	SetCache(string(dat))
+	SetCache(SuperRole, dat)
 	err = InitUsageDbTable()
 	errNil(t, err)
 
@@ -80,7 +79,7 @@ func TestTenantNamespaceUsage(t *testing.T) {
 	// dat, err := ioutil.ReadFile("./useast2-aws.dat")
 	errNil(t, err)
 
-	SetCache(string(dat))
+	SetCache(SuperRole, dat)
 	err = InitUsageDbTable()
 	errNil(t, err)
 

@@ -32,6 +32,13 @@ A super user role's JWT must be specified in the `Authorization` header as `Bear
 ```
 Allowed characters for user subject are alphanumeric and hyphen.
 
+Token signing method and expiry duration can be passed as query parameters. The default settings are RS256 and no expiry.
+```
+/subject/{user-subject}?exp=<duration>&alg=<signMethod>
+```
+The supported duration is d, y, and [ns, us, µs, ms, s, m, h defined by Go time package](https://golang.org/pkg/time/#ParseDuration)
+The supported signing method is sepcified at [here]()
+
 ### Tenant function log retrieval
 It is a rolling log retrieval from the function worker.
 

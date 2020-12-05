@@ -65,7 +65,11 @@ jobs:
           ls /tmp
           sudo docker run -v /tmp:/tmp apachepulsar/pulsar:2.6.1 bin/pulsar tokens create --secret-key /tmp/unitest-keypair-private.key --subject test-user
           sudo docker run -v /tmp:/tmp apachepulsar/pulsar:2.6.1 bin/pulsar tokens show -f /tmp/myadmin.jwt
-          sudo docker run -v /tmp:/tmp apachepulsar/pulsar:2.6.1 bin/pulsar tokens validate -pk /tmp/unitest-keypair-public.key -f /tmp/myadmin.jwt | grep '{sub=myadmin}'
+          sudo docker run -v /tmp:/tmp apachepulsar/pulsar:2.6.1 bin/pulsar tokens validate -pk /tmp/unitest-keypair-public.key -f /tmp/myadmin.jwt | grep 'sub=myadmin'
+          sudo docker run -v /tmp:/tmp apachepulsar/pulsar:2.6.1 bin/pulsar tokens validate -pk /tmp/unitest-keypair-public.key -f /tmp/exp-token.jwt | grep 'sub=exp-token'
+          sudo docker run -v /tmp:/tmp apachepulsar/pulsar:2.6.1 bin/pulsar tokens validate -pk /tmp/unitest-keypair-public.key -f /tmp/exp-token.jwt | grep 'exp='
+          sudo docker run -v /tmp:/tmp apachepulsar/pulsar:2.6.1 bin/pulsar tokens validate -pk /tmp/unitest-keypair-public.key -f /tmp/exp-token.jwt | grep 'iat='
+          sudo docker run -v /tmp:/tmp apachepulsar/pulsar:2.6.1 bin/pulsar tokens validate -pk /tmp/unitest-keypair-public.key -f /tmp/noexpiry.jwt | grep '{sub=noexpiry}'
   docker:
     name: docker
     runs-on: ubuntu-latest 

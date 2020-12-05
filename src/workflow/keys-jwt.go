@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/apex/log"
+	"github.com/dgrijalva/jwt-go"
 	"github.com/kafkaesque-io/burnell/src/icrypto"
 	"github.com/kafkaesque-io/burnell/src/k8s"
 	"github.com/kafkaesque-io/burnell/src/util"
@@ -69,8 +70,8 @@ const (
 	tokenPrivateKey = "token-private-key"
 	tokenPublicKey  = "token-public-key"
 
-	privateKeyFileSuffix = "-private.key"
-	publicKeyFileSuffix  = "-public.key"
+	defaultPrivateKeyName = "my-private.key"
+	defaultPublicKeyName  = "my-public.key"
 )
 
 var defaultRoleString = []string{"admin", "proxy", "superuser", "websocket"}
@@ -84,6 +85,8 @@ type Cluster struct {
 	CertManagerNamespace string
 	MonitoringNamespace  string
 	SuperRoles           []string
+	PrivateKeyFileName   string
+	PublicKeyFileName    string
 	Status               PulsarClusterStatusCode
 	l                    *log.Entry
 	KeysJWTs
@@ -94,17 +97,18 @@ type KeysJWTs struct {
 	KeyManager         *icrypto.RSAKeyPair
 	PrivateKeyFilePath string
 	PublicKeyFilePath  string
-	PrivateKeyBinary   string
-	PublicKeyBinary    string
 	PulsarJWTs         map[string]string // key is subject, value is pulsar token
 	l                  *log.Entry
 }
 
 // NewCluster creates a new cluster
 func NewCluster(clusterName, k8sNamespace string) *Cluster {
+	cfg := util.GetConfig()
 	return &Cluster{
-		ClusterName:     clusterName,
-		PulsarNamespace: k8sNamespace,
+		ClusterName:        clusterName,
+		PulsarNamespace:    k8sNamespace,
+		PrivateKeyFileName: util.AssignString(cfg.PrivateKeySecretName, defaultPrivateKeyName),
+		PublicKeyFileName:  util.AssignString(cfg.PublicKeySecretName, defaultPublicKeyName),
 		l: log.WithFields(log.Fields{
 			"cluster": clusterName,
 		}),
@@ -140,7 +144,7 @@ func (m *Cluster) Create() error {
 	m.l.Infof("kubernetes namespace %s is created", m.PulsarNamespace)
 
 	// 3. create and upload keys and jwt
-	if err := keysAndJWTs.Create(k8sNamespace, m.ClusterName); err != nil {
+	if err := keysAndJWTs.Create(k8sNamespace, m.PrivateKeyFileName, m.PublicKeyFileName); err != nil {
 		m.KeysAndJWT.Status = Failed
 		return err
 	}
@@ -160,18 +164,18 @@ func (m *Cluster) Healer() error {
 	m.K8sNamespaces.Status = Succeeded
 	m.l.Infof("kubernetes namespace %s is verified", m.PulsarNamespace)
 
-	privateKey, err := getKeyFromSecret(m.PulsarNamespace, tokenPrivateKey, privateKeyFileSuffix)
+	privateKey, err := getKeyFromSecret(m.PulsarNamespace, tokenPrivateKey, m.PrivateKeyFileName)
 	if err != nil {
 		log.Errorf("error to get secret %s under namespace %s, err %v", tokenPrivateKey, m.PulsarNamespace, err)
 		return m.Create()
 	}
 
-	publicKey, err := getKeyFromSecret(m.PulsarNamespace, tokenPublicKey, publicKeyFileSuffix)
+	publicKey, err := getKeyFromSecret(m.PulsarNamespace, tokenPublicKey, m.PublicKeyFileName)
 	if err != nil {
 		log.Errorf("error to get secret %s under namespace %s, err %v", tokenPublicKey, m.PulsarNamespace, err)
 		return m.Create()
 	}
-	m.l.Infof("public and private keys verified under namespace %s", m.PulsarNamespace)
+	m.l.Infof("private and public keys verified under namespace %s", m.PulsarNamespace)
 
 	rsaKey, err := icrypto.LoadRSAKeyPairFromBase64(privateKey, publicKey)
 	if err != nil {
@@ -198,30 +202,7 @@ func (m *Cluster) Healer() error {
 }
 
 // Create creates private and public keys and admin superuser jwt
-func (kj *KeysJWTs) Create(k8sNamespace, accountName string) error {
-	privateKeyName := accountName + privateKeyFileSuffix
-	publicKeyName := accountName + publicKeyFileSuffix
-	kj.PrivateKeyBinary = kj.KeyManager.ExportPrivateKeyBinaryBase64()
-	kj.PublicKeyBinary = kj.KeyManager.ExportPublicKeyBinaryBase64()
-
-	for _, v := range getAdminRoles() {
-		role := strings.TrimSpace(v)
-		tokenString, err := kj.KeyManager.GenerateToken(role)
-		if err != nil {
-			return err
-		}
-		kj.PulsarJWTs[role] = tokenString
-
-		// log.Debugf("%s :  %s", role, tokenString)
-		// encode token and upload to k8s secrets
-		k8sSecretName := "token-" + role
-		data := map[string][]byte{
-			role + JWTFileExtension: []byte(tokenString),
-		}
-		k8s.LocalClient.CreateSecret(k8sNamespace, k8sSecretName, data)
-		kj.l.Infof("successfully exported %s token to secret %s under k8s namesapce %s", role, k8sSecretName, k8sNamespace)
-	}
-
+func (kj *KeysJWTs) Create(k8sNamespace, privateKeyName, publicKeyName string) error {
 	k8s.LocalClient.CreateSecret(k8sNamespace, "token-private-key",
 		map[string][]byte{
 			privateKeyName: kj.KeyManager.PrivateKeyPKCS8Bytes,
@@ -232,6 +213,23 @@ func (kj *KeysJWTs) Create(k8sNamespace, accountName string) error {
 		})
 	kj.l.Infof("successfully exported token private and public key as k8s secrets under namesapce %s", k8sNamespace)
 
+	for _, v := range getAdminRoles() {
+		role := strings.TrimSpace(v)
+		tokenString, err := kj.KeyManager.GenerateToken(role, 0, jwt.SigningMethodRS256)
+		if err != nil {
+			return err
+		}
+		kj.PulsarJWTs[role] = tokenString
+
+		// encode token and upload to k8s secrets
+		k8sSecretName := "token-" + role
+		data := map[string][]byte{
+			role + JWTFileExtension: []byte(tokenString),
+		}
+		k8s.LocalClient.CreateSecret(k8sNamespace, k8sSecretName, data)
+		kj.l.Infof("successfully exported %s token to secret %s under k8s namesapce %s", role, k8sSecretName, k8sNamespace)
+	}
+
 	return nil
 }
 
@@ -239,7 +237,7 @@ func (kj *KeysJWTs) Create(k8sNamespace, accountName string) error {
 func (kj *KeysJWTs) Repair(k8sNamespace, clusterName string) error {
 	for _, v := range getAdminRoles() {
 		role := strings.TrimSpace(v)
-		tokenString, err := kj.KeyManager.GenerateToken(role)
+		tokenString, err := kj.KeyManager.GenerateToken(role, 0, jwt.SigningMethodRS256)
 		if err != nil {
 			return err
 		}
@@ -254,6 +252,8 @@ func (kj *KeysJWTs) Repair(k8sNamespace, clusterName string) error {
 			err = k8s.LocalClient.CreateSecret(k8sNamespace, k8sSecretName, data)
 			if err != nil {
 				kj.l.Errorf("failed to create secret %s under namespace %s err %v", k8sSecretName, k8sNamespace, err)
+			} else {
+				kj.l.Infof("create secret %s under namespace %s", k8sSecretName, k8sNamespace)
 			}
 		}
 	}
@@ -262,15 +262,15 @@ func (kj *KeysJWTs) Repair(k8sNamespace, clusterName string) error {
 }
 
 // getKeyFromSecret gets either public or private keys from the secret
-func getKeyFromSecret(k8sNamespace, secretName, keySuffix string) ([]byte, error) {
+func getKeyFromSecret(k8sNamespace, secretName, secreteKey string) ([]byte, error) {
 	secrets, err := k8s.LocalClient.GetSecret(k8sNamespace, secretName)
 	if err != nil {
 		return []byte{}, err //not found
 	}
 
 	for k, v := range secrets {
-		if strings.HasSuffix(k, keySuffix) {
-			// return the first matched suffix key
+		if k == secreteKey {
+			// return the first matched
 			return v, nil
 		}
 	}
@@ -285,7 +285,7 @@ func ConfigKeysJWTs(setupOnce bool) {
 	pulsarNs := util.AssignString(cfg.PulsarNamespace, "burnell-ns")
 	c := NewCluster(cfg.ClusterName, pulsarNs)
 	if setupOnce {
-		err := c.Create()
+		err := c.Healer()
 		if err != nil {
 			log.Errorf("keys-jwt create keys and jwts failure err %v", err)
 		}

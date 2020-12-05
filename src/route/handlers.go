@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/kafkaesque-io/burnell/src/icrypto"
 	"github.com/kafkaesque-io/burnell/src/logclient"
 	"github.com/kafkaesque-io/burnell/src/metrics"
 	"github.com/kafkaesque-io/burnell/src/policy"
@@ -69,7 +70,17 @@ func TokenSubjectHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokenString, err := util.JWTAuth.GenerateToken(subject)
+	u, _ := url.Parse(r.URL.String())
+	params := u.Query()
+	expStr := queryParamString(params, "exp", "0m")
+	algStr := queryParamString(params, "alg", "rs256") // the limit is per broker
+	exp, alg, err := icrypto.ValidateClaims(expStr, algStr)
+	if err != nil {
+		util.ResponseErrorJSON(err, w, http.StatusUnprocessableEntity)
+		return
+	}
+
+	tokenString, err := util.JWTAuth.GenerateToken(subject, exp, alg)
 	if err != nil {
 		util.ResponseErrorJSON(errors.New("failed to generate token"), w, http.StatusInternalServerError)
 	} else {
@@ -504,12 +515,9 @@ func PulsarFederatedPrometheusHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_, tenant := ExtractTenant(subject)
-	// fmt.Printf("subject for federated prom %s tenant %s\n", subject, tenant)
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
 	if util.StrContains(util.SuperRoles, tenant) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(metrics.AllNamespaceMetrics()))
-		return
+		tenant = metrics.SuperRole
 	}
 
 	//TODO: disable the feature since the backend database has to populated
@@ -521,10 +529,18 @@ func PulsarFederatedPrometheusHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func tenantFederatedPrometheus(tenant string, w http.ResponseWriter) {
-	data := metrics.FilterFederatedMetrics(tenant)
+	data, err := metrics.GetTenantPromMetrics(tenant)
+	if err != nil {
+		util.ResponseErrorJSON(err, w, http.StatusInternalServerError)
+		return
+	}
+
 	if len(data) > 1 {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(data))
+	} else if tenant == metrics.SuperRole {
+		// missing all metrics must be an internal error
+		util.ResponseErrorJSON(fmt.Errorf("failed to get prometheus data"), w, http.StatusInternalServerError)
 	} else if policy.IsTenant(tenant) {
 		w.WriteHeader(http.StatusOK)
 	} else {
@@ -644,6 +660,13 @@ func queryParamInt(params url.Values, name string, defaultV int) int {
 		if n, err := strconv.Atoi(str[0]); err == nil {
 			return n
 		}
+	}
+	return defaultV
+}
+
+func queryParamString(params url.Values, name string, defaultV string) string {
+	if str, ok := params[name]; ok {
+		return str[0]
 	}
 	return defaultV
 }

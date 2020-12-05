@@ -14,6 +14,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"regexp"
+	"strconv"
+	"strings"
 	"time"
 
 	jwt "github.com/dgrijalva/jwt-go"
@@ -173,12 +176,18 @@ func writeKeyToFile(keyBytes []byte, saveFileTo string) error {
 }
 
 // GenerateToken generates token with user defined subject
-func (keys *RSAKeyPair) GenerateToken(userSubject string) (string, error) {
-	token := jwt.New(jwt.SigningMethodRS256)
-	token.Claims = jwt.MapClaims{
-		// "exp": time.Now().Add(time.Hour * time.Duration(24)).Unix(),
-		// "iat": time.Now().Unix(),
-		"sub": userSubject,
+func (keys *RSAKeyPair) GenerateToken(userSubject string, timeDuration time.Duration, signingMethod jwt.SigningMethod) (string, error) {
+	token := jwt.New(signingMethod)
+	if timeDuration > 0 {
+		token.Claims = jwt.MapClaims{
+			"exp": time.Now().Add(timeDuration).Unix(),
+			"iat": time.Now().Unix(),
+			"sub": userSubject,
+		}
+	} else {
+		token.Claims = jwt.MapClaims{
+			"sub": userSubject,
+		}
 	}
 	tokenString, err := token.SignedString(keys.PrivateKey)
 	if err != nil {
@@ -372,4 +381,76 @@ func getPublicKey(file string) (*rsa.PublicKey, error) {
 	}
 
 	return ParseX509PKIXPublicKey(data)
+}
+
+// SigMethod converts signing method string to signing method
+func SigMethod(algo string) jwt.SigningMethod {
+	switch strings.ToLower(algo) {
+	case "rs256":
+		return jwt.SigningMethodRS256
+	case "rs384":
+		return jwt.SigningMethodRS384
+	case "rs512":
+		return jwt.SigningMethodRS512
+	case "hs256":
+		return jwt.SigningMethodHS256
+	case "hs384":
+		return jwt.SigningMethodHS384
+	case "hs512":
+		return jwt.SigningMethodHS512
+	case "es256":
+		return jwt.SigningMethodES256
+	case "es384":
+		return jwt.SigningMethodES384
+	case "es512":
+		return jwt.SigningMethodES512
+	case "ps256":
+		return jwt.SigningMethodPS256
+	case "ps384":
+		return jwt.SigningMethodPS384
+	case "ps512":
+		return jwt.SigningMethodPS512
+	case "none":
+		return jwt.SigningMethodNone
+	default:
+		return nil
+	}
+}
+
+// ValidateClaims validates and generate claims for JWT such as time duration and signing method
+func ValidateClaims(expiryDuration, signingMethod string) (time.Duration, jwt.SigningMethod, error) {
+	dur := strings.TrimSpace(strings.ToLower(expiryDuration))
+	timeDuration, err := ValidateDurationPeriod(dur)
+	if err != nil {
+		timeDuration, err = time.ParseDuration(dur)
+		if err != nil {
+			return 0, nil, err
+		}
+	}
+
+	sigMethod := SigMethod(signingMethod)
+	if sigMethod == nil {
+		return 0, nil, fmt.Errorf("invalid JWT signing method %s", signingMethod)
+	}
+	return timeDuration, sigMethod, nil
+}
+
+// ValidateDurationPeriod validate duration in year and day that is missing from Golang library
+// the number of minutes in an hour and a year is undetermined
+// but the code has to comply with Pulsar token expiry convention defined by `pulsar tokens`
+func ValidateDurationPeriod(duration string) (time.Duration, error) {
+	year := regexp.MustCompile(`^[1-9][0-9]*y$`)
+	day := regexp.MustCompile(`^[1-9][0-9]*d$`)
+	if day.MatchString(duration) {
+		n, err := strconv.Atoi(duration[:len(duration)-1])
+		if err == nil {
+			return time.Duration(n) * 24 * time.Hour, nil
+		}
+	} else if year.MatchString(duration) {
+		n, err := strconv.Atoi(duration[:len(duration)-1])
+		if err == nil {
+			return time.Duration(n) * 365 * 24 * time.Hour, nil
+		}
+	}
+	return 0, fmt.Errorf("invalid duration %s", duration)
 }
