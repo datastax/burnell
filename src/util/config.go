@@ -13,8 +13,8 @@ import (
 	"unicode"
 
 	"github.com/apex/log"
+	"github.com/datastax/burnell/src/icrypto"
 	"github.com/ghodss/yaml"
-	"github.com/kafkaesque-io/burnell/src/icrypto"
 )
 
 // DefaultConfigFile - default config file

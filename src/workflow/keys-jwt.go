@@ -6,10 +6,10 @@ import (
 	"time"
 
 	"github.com/apex/log"
+	"github.com/datastax/burnell/src/icrypto"
+	"github.com/datastax/burnell/src/k8s"
+	"github.com/datastax/burnell/src/util"
 	"github.com/dgrijalva/jwt-go"
-	"github.com/kafkaesque-io/burnell/src/icrypto"
-	"github.com/kafkaesque-io/burnell/src/k8s"
-	"github.com/kafkaesque-io/burnell/src/util"
 )
 
 // StepStatus is the k8s Pulsar cluster runtime status

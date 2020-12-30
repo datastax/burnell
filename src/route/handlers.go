@@ -12,12 +12,12 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/datastax/burnell/src/icrypto"
+	"github.com/datastax/burnell/src/logclient"
+	"github.com/datastax/burnell/src/metrics"
+	"github.com/datastax/burnell/src/policy"
+	"github.com/datastax/burnell/src/util"
 	"github.com/gorilla/mux"
-	"github.com/kafkaesque-io/burnell/src/icrypto"
-	"github.com/kafkaesque-io/burnell/src/logclient"
-	"github.com/kafkaesque-io/burnell/src/metrics"
-	"github.com/kafkaesque-io/burnell/src/policy"
-	"github.com/kafkaesque-io/burnell/src/util"
 	"github.com/kafkaesque-io/pulsar-beam/src/model"
 	"github.com/kafkaesque-io/pulsar-beam/src/route"
 
@@ -881,11 +881,11 @@ func extractEvalTenant(requiredSubject, tokenSub string) bool {
 }
 
 // ExtractTenant attempts to extract tenant based on delimiter `-` and `-client-`
-// so that it will covercases such as 1. chris-kafkaesque-io-12345qbc
-// 2. chris-kafkaesque-io-client-12345qbc
-// 3. chris-kafkaesque-io
-// 4. chris-kafkaesque-io-client-client-12345qbc
-// 4. chris-kafkaesque-io-client-admin-12345qbc
+// so that it will covercases such as 1. chris-datastax-12345qbc
+// 2. chris-datastax-client-12345qbc
+// 3. chris-datastax
+// 4. chris-datastax-client-client-12345qbc
+// 4. chris-datastax-client-admin-12345qbc
 func ExtractTenant(tokenSub string) (string, string) {
 	var case1 string
 	// expect `-` in subject unless it is superuser, or admin

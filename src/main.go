@@ -10,12 +10,12 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
 
-	"github.com/kafkaesque-io/burnell/src/logclient"
-	"github.com/kafkaesque-io/burnell/src/metrics"
-	"github.com/kafkaesque-io/burnell/src/policy"
-	"github.com/kafkaesque-io/burnell/src/route"
-	"github.com/kafkaesque-io/burnell/src/util"
-	"github.com/kafkaesque-io/burnell/src/workflow"
+	"github.com/datastax/burnell/src/logclient"
+	"github.com/datastax/burnell/src/metrics"
+	"github.com/datastax/burnell/src/policy"
+	"github.com/datastax/burnell/src/route"
+	"github.com/datastax/burnell/src/util"
+	"github.com/datastax/burnell/src/workflow"
 	httptls "github.com/kafkaesque-io/pulsar-beam/src/util"
 )
 

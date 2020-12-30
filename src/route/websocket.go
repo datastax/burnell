@@ -5,8 +5,8 @@ import (
 	"net/url"
 
 	"github.com/apex/log"
+	"github.com/datastax/burnell/src/util"
 	"github.com/gorilla/websocket"
-	"github.com/kafkaesque-io/burnell/src/util"
 	wsproxy "github.com/koding/websocketproxy"
 )
 

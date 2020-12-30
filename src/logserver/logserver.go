@@ -12,8 +12,8 @@ import (
 	"os"
 	"strings"
 
-	pb "github.com/kafkaesque-io/burnell/src/logstream"
-	"github.com/kafkaesque-io/burnell/src/util"
+	pb "github.com/datastax/burnell/src/logstream"
+	"github.com/datastax/burnell/src/util"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )

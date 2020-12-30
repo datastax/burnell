@@ -4,8 +4,8 @@ import (
 	"net/http"
 
 	"github.com/apex/log"
+	"github.com/datastax/burnell/src/util"
 	"github.com/gorilla/mux"
-	"github.com/kafkaesque-io/burnell/src/util"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 

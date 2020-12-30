@@ -1,4 +1,4 @@
-module github.com/kafkaesque-io/burnell
+module github.com/datastax/burnell
 
 go 1.13
 

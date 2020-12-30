@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	. "github.com/kafkaesque-io/burnell/src/policy"
-	"github.com/kafkaesque-io/burnell/src/util"
+	. "github.com/datastax/burnell/src/policy"
+	"github.com/datastax/burnell/src/util"
 )
 
 func TestFeatureCodes(t *testing.T) {

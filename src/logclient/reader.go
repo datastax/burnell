@@ -17,9 +17,9 @@ import (
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
 
-	"github.com/kafkaesque-io/burnell/src/logstream"
-	"github.com/kafkaesque-io/burnell/src/pb"
-	"github.com/kafkaesque-io/burnell/src/util"
+	"github.com/datastax/burnell/src/logstream"
+	"github.com/datastax/burnell/src/pb"
+	"github.com/datastax/burnell/src/util"
 )
 
 // FunctionLogResponse is HTTP response object

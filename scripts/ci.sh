@@ -9,7 +9,7 @@
 # absolute directory
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-BASE_PKG_DIR="github.com/kafkaesque-io/burnell/src/"
+BASE_PKG_DIR="github.com/datastax/burnell/src/"
 ALL_PKGS=""
 
 cd $DIR/../src

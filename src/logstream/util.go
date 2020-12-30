@@ -3,7 +3,7 @@ package logstream
 import (
 	"os"
 
-	"github.com/kafkaesque-io/burnell/src/util"
+	"github.com/datastax/burnell/src/util"
 )
 
 // DefaultLogServerPort port

@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/apache/pulsar-client-go/pulsar"
-	"github.com/kafkaesque-io/burnell/src/util"
+	"github.com/datastax/burnell/src/util"
 
 	"github.com/apex/log"
 )

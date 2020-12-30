@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/apex/log"
+	"github.com/datastax/burnell/src/util"
 	"github.com/hashicorp/go-memdb"
-	"github.com/kafkaesque-io/burnell/src/util"
 	"github.com/prometheus/common/expfmt"
 )
 

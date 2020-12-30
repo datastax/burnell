@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/apex/log"
+	"github.com/datastax/burnell/src/util"
 	"github.com/gorilla/mux"
-	"github.com/kafkaesque-io/burnell/src/util"
 )
 
 // Rate is the default global rate limit

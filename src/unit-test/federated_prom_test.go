@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	. "github.com/kafkaesque-io/burnell/src/metrics"
+	. "github.com/datastax/burnell/src/metrics"
 )
 
 func TestFederatedPromProcess(t *testing.T) {

@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/kafkaesque-io/burnell/src/policy"
+	"github.com/datastax/burnell/src/policy"
 )
 
 // This is an end to end test program. It does these steps in order

@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/apex/log"
+	"github.com/datastax/burnell/src/util"
 	"github.com/hashicorp/go-memdb"
-	"github.com/kafkaesque-io/burnell/src/util"
 )
 
 var statsLog = log.WithFields(log.Fields{"app": "broker stats cache"})

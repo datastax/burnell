@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	. "github.com/kafkaesque-io/burnell/src/util"
+	. "github.com/datastax/burnell/src/util"
 )
 
 func TestGetEnvInt(t *testing.T) {

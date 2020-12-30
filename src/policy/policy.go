@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kafkaesque-io/burnell/src/util"
+	"github.com/datastax/burnell/src/util"
 	"github.com/kafkaesque-io/pulsar-beam/src/db"
 )
 

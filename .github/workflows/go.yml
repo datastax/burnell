@@ -24,7 +24,7 @@ jobs:
         uses: actions/checkout@v1
         with:
           fetch-depth: 1
-          path: go/src/github.com/kafkaesque-io/burnell
+          path: go/src/github.com/datastax/burnell
 
       - name: Lint Go Code
         run: |
@@ -46,7 +46,7 @@ jobs:
         uses: actions/checkout@v1
         with:
           fetch-depth: 1
-          path: go/src/github.com/kafkaesque-io/burnell
+          path: go/src/github.com/datastax/burnell
       - name: Build Binary
         run: |
           go mod download
@@ -78,7 +78,7 @@ jobs:
         uses: actions/checkout@v1
         with:
           fetch-depth: 1
-          path: go/src/github.com/kafkaesque-io/burnell
+          path: go/src/github.com/datastax/burnell
 
       - name: Build Burnell Docker Image
         run: |

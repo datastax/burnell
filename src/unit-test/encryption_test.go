@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/datastax/burnell/src/icrypto"
 	jwt "github.com/dgrijalva/jwt-go"
-	. "github.com/kafkaesque-io/burnell/src/icrypto"
 )
 
 func TestRSAKeyPair(t *testing.T) {

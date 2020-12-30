@@ -7,7 +7,7 @@ import (
 	"net/http"
 
 	"github.com/apex/log"
-	"github.com/kafkaesque-io/burnell/src/util"
+	"github.com/datastax/burnell/src/util"
 )
 
 // maintains a list of tenants
