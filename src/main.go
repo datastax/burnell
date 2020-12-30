@@ -1,3 +1,24 @@
+ //
+ //  Copyright (c) 2021 Datastax, Inc.
+ //  
+ //  Licensed to the Apache Software Foundation (ASF) under one
+ //  or more contributor license agreements.  See the NOTICE file
+ //  distributed with this work for additional information
+ //  regarding copyright ownership.  The ASF licenses this file
+ //  to you under the Apache License, Version 2.0 (the
+ //  "License"); you may not use this file except in compliance
+ //  with the License.  You may obtain a copy of the License at
+ //  
+ //     http://www.apache.org/licenses/LICENSE-2.0
+ //  
+ //  Unless required by applicable law or agreed to in writing,
+ //  software distributed under the License is distributed on an
+ //  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ //  KIND, either express or implied.  See the License for the
+ //  specific language governing permissions and limitations
+ //  under the License.
+ //
+
 package main
 
 import (
@@ -10,12 +31,12 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
 
-	"github.com/kafkaesque-io/burnell/src/logclient"
-	"github.com/kafkaesque-io/burnell/src/metrics"
-	"github.com/kafkaesque-io/burnell/src/policy"
-	"github.com/kafkaesque-io/burnell/src/route"
-	"github.com/kafkaesque-io/burnell/src/util"
-	"github.com/kafkaesque-io/burnell/src/workflow"
+	"github.com/datastax/burnell/src/logclient"
+	"github.com/datastax/burnell/src/metrics"
+	"github.com/datastax/burnell/src/policy"
+	"github.com/datastax/burnell/src/route"
+	"github.com/datastax/burnell/src/util"
+	"github.com/datastax/burnell/src/workflow"
 	httptls "github.com/kafkaesque-io/pulsar-beam/src/util"
 )
 

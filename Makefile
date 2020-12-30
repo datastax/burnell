@@ -14,8 +14,8 @@
 
 all: push
 
-TAG ?= 1.2.63
-PREFIX ?= kesque/burnell
+TAG ?= 0.0.1
+PREFIX ?= datastax/burnell
 
 container:
 	docker build -t $(PREFIX):$(TAG) .
