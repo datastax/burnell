@@ -4,7 +4,7 @@
 FROM golang:alpine AS builder
 
 # Add Maintainer Info
-LABEL maintainer="kesque"
+LABEL maintainer="ming luo"
 LABEL stage=build
 
 RUN apk --no-cache add build-base git
