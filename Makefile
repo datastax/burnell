@@ -14,14 +14,19 @@
 
 all: push
 
-TAG ?= 0.0.1
+#
+# Docker tag with v prefix to differentiate the official release build, triggered by git tagging
+#
+TAG ?= v0.0.3
 PREFIX ?= datastax/burnell
 
 container:
 	docker build -t $(PREFIX):$(TAG) .
+	docker tag $(PREFIX):$(TAG) ${PREFIX}:latest 
 
 push: container
 	docker push $(PREFIX):$(TAG)
+	docker push $(PREFIX):latest
 
 clean:
 	docker rmi $(PREFIX):$(TAG)
