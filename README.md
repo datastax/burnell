@@ -1,36 +1,36 @@
 # Burnell
 
-Burnell is a Pulsar proxy. It offers the following features.
+Burnell is a proxy in a Pulsar cluster. It offers the following features:
 
-- [x] Generate and validate Pulsar JWT that is compatible with Pulsar Java based Authen and Author
+- [x] Generate Pulsar JWT that is compatible with Pulsar Java based authentication and authorization
 - [x] Authentication and authorization based on Pulsar JWT
 - [x] Proxy the entire set of [Pulsar Admin REST API](https://pulsar.apache.org/admin-rest-api/)
 - [x] Tenant based authorization over Pulsar Admin REST API
 - [x] Expose tenant Prometheus metrics on the brokers
 - [x] Interface to query function logs
-- [x] Pulsar Beam webhook and topic management REST API
+- [x] Provides statistics with pagination
+- [x] Pulsar Beam webhook and topic management REST API that enforces tenant based authorization
 - [x] Tenants and tenant's namespace usage metering, total bytes and message in and out
 - [x] Initializer mode to configure Pulsar Kubernete cluster TLS keys and JWT
-- [x] Healer mode to repair Pulsar Kubernete cluster TLS keys and JWT
-- [ ] Proxy Pulsar TCP protocol
-
+- [x] Repair Pulsar Kubernete cluster TLS keys and JWT
+- [x] It provides Pulsar websocket proxy that sets token in the http paramter to http header
 ## Process running mode
 ```
+burnell -mode proxy
 burnell -mode init
 burnell -mode healer
-burnell -mode proxy
 ```
 The default process mode is `proxy`
 
 ## Rest API
 
-### Generate user token
-A super user role's JWT must be specified in the `Authorization` header as `Bearer` token in the `GET` method with this route
+### Generate JWT token
+To generate a JWT token, a super user role's JWT must be specified in the `Authorization` header as `Bearer` token in the `GET` method with this route.
 
 ```
 /subject/{user-subject}
 ```
-Allowed characters for user subject are alphanumeric and hyphen.
+Permitted characters for user subject are alphanumeric and hyphen.
 
 Token signing method and expiry duration can be passed as query parameters. The default settings are RS256 and no expiry.
 ```
@@ -39,8 +39,10 @@ Token signing method and expiry duration can be passed as query parameters. The 
 The supported duration is d, y, and [ns, us, µs, ms, s, m, h defined by Go time package](https://golang.org/pkg/time/#ParseDuration)
 The supported signing method is sepcified at [here]()
 
+Generated JWT can be validated by Pulsar unders the same encryption key scheme.
+
 ### Tenant function log retrieval
-It is a rolling log retrieval from the function worker.
+It provides a rolling log crawler from the function worker.
 
 #### Function log retrieval endpoint and query parameters
 By default, the endpoint will return the last few lines of the latest log.
@@ -71,7 +73,7 @@ Since the algorithm always returns a few complete logs, the payload size can var
 ```
 
 #### Function worker Id per function instances
-To help troubleshoot function instance and its worker Id mapping, the `function-status` endpoint offers insights of such mapping and function status.
+To troubleshoot function instance and its worker Id mapping, the `function-status` endpoint offers insights of such mapping and function status.
 ```
 /function-status/{tenant}/{namespace}/{function-name}
 ```
@@ -108,7 +110,7 @@ Superuser token or tenant token is required
 ```
 
 ### Tenant CRUD
-
+It provides tenant policy management. Tenant policy specifies message retention policy, feature codes, and limits for namespaces, producers and consumers.
 #### Resource endpoint
 ```
 /k/tenant/{tenant}
@@ -183,7 +185,7 @@ Scrape config offers `honor_labels: true` to honor the existing labels. It is op
 ### Pulsar Admin Rest API Proxy
 
 #### Pulsar Admin REST API
-[Pulsar Admin REST API](https://pulsar.apache.org/admin-rest-api/) is mapped with the exact same routes. The exceptions are `\broker-stats`.
+[Pulsar Admin REST API](https://pulsar.apache.org/admin-rest-api/) is mapped with the exact same routes under `\admin\v2` and `admin\v3` for functions, sinks, and sources. The exception is `\broker-stats`.
 
 `/admin/v2/broker-stats` response aggregates all brokers' statistics. It returns brokers in the order of broker name, therefore it individual broker json object similar to pagination.
 
@@ -203,7 +205,7 @@ The new offset and total will be returned in the repsonse body.
 {"total":1,"offset":1,"data":[{"broker":"10.244.1.221:8080","data":[{"...
 ```
 
-### Docker
+### Docker build
 
 ```
 docker build -t burnell .
