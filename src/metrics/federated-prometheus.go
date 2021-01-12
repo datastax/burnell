@@ -1,23 +1,23 @@
- //
- //  Copyright (c) 2021 Datastax, Inc.
- //  
- //  Licensed to the Apache Software Foundation (ASF) under one
- //  or more contributor license agreements.  See the NOTICE file
- //  distributed with this work for additional information
- //  regarding copyright ownership.  The ASF licenses this file
- //  to you under the Apache License, Version 2.0 (the
- //  "License"); you may not use this file except in compliance
- //  with the License.  You may obtain a copy of the License at
- //  
- //     http://www.apache.org/licenses/LICENSE-2.0
- //  
- //  Unless required by applicable law or agreed to in writing,
- //  software distributed under the License is distributed on an
- //  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- //  KIND, either express or implied.  See the License for the
- //  specific language governing permissions and limitations
- //  under the License.
- //
+//
+//  Copyright (c) 2021 Datastax, Inc.
+//
+//  Licensed to the Apache Software Foundation (ASF) under one
+//  or more contributor license agreements.  See the NOTICE file
+//  distributed with this work for additional information
+//  regarding copyright ownership.  The ASF licenses this file
+//  to you under the Apache License, Version 2.0 (the
+//  "License"); you may not use this file except in compliance
+//  with the License.  You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+//  Unless required by applicable law or agreed to in writing,
+//  software distributed under the License is distributed on an
+//  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+//  KIND, either express or implied.  See the License for the
+//  specific language governing permissions and limitations
+//  under the License.
+//
 
 package metrics
 
@@ -71,8 +71,7 @@ type TenantPromMetrics struct {
 }
 
 var (
-	// Everything is not threadsafe. We will run concurrency only if there are too many tenants and topics to process
-	// Everything runs sequentially.
+	// Tenant and its cache are not threadsafe
 
 	tenants     = make(map[string]bool)
 	tenantsLock = sync.RWMutex{}
@@ -130,7 +129,7 @@ func Init() {
 
 	url := util.Config.FederatedPromURL
 	interval := time.Duration(util.GetEnvInt("ScrapeFederatedPromIntervalSeconds", 60)) * time.Second
-	if url != "" && !util.Config.TenantsUsageDisabled {
+	if url != "" && util.IsStatsMode() {
 		logger.Infof("Federated Prometheus URL %s at interval %v", url, interval)
 		go func() {
 			InitUsageDbTable()
@@ -223,6 +222,7 @@ func FilterFederatedMetrics(byteData []byte, subject string) string {
 
 // GetTenantPromMetrics gets tenant prometheus metrics
 func GetTenantPromMetrics(tenant string) ([]byte, error) {
+	log.Infof("get tenant prom metrics %s", tenant)
 	if data, err := GetCache(tenant); err == nil {
 		return data, nil
 	}
