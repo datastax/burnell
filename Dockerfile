@@ -14,7 +14,9 @@ RUN go get github.com/google/gops
 
 WORKDIR /root/
 ADD . /root
-RUN cd /root/src && go build -o burnell
+RUN cd /root/src && \
+  GIT_COMMIT=$(git rev-list -1 HEAD) && \
+  go build -o burnell -ldflags "-X main.gitCommit=$GIT_COMMIT"
 
 ######## Start a new stage from scratch #######
 FROM alpine

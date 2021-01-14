@@ -23,6 +23,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
 	"runtime"
 
@@ -40,6 +41,9 @@ import (
 	httptls "github.com/kafkaesque-io/pulsar-beam/src/util"
 )
 
+// commit sha which this binary is built against
+var gitCommit string
+
 func main() {
 	// runtime.GOMAXPROCS does not the container's CPU quota in Kubernetes
 	// therefore, it requires to be set explicitly
@@ -51,7 +55,13 @@ func main() {
 	}
 
 	modePtr := flag.String("mode", util.Proxy, "process running mode: proxy(default), init, healer")
+	version := flag.Bool("version", false, "version (commit sha)")
 	flag.Parse()
+	if *version {
+		fmt.Printf("git commit: %s\n", gitCommit)
+		os.Exit(0)
+	}
+
 	mode := util.AssignString(os.Getenv("ProcessMode"), *modePtr)
 	log.Warnf("process running mode %s", mode)
 
