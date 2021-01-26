@@ -11,9 +11,9 @@ Burnell is a proxy in a Pulsar cluster. It offers the following features:
 - [x] Provides statistics with pagination
 - [x] Pulsar Beam webhook and topic management REST API that enforces tenant based authorization
 - [x] Tenants and tenant's namespace usage metering, total bytes and message in and out
-- [x] Initializer mode to configure Pulsar Kubernete cluster TLS keys and JWT
-- [x] Repair Pulsar Kubernete cluster TLS keys and JWT
-- [x] It provides Pulsar websocket proxy that sets token in the http paramter to http header
+- [x] Initializer mode to configure Pulsar Kubernetes cluster TLS keys and JWT
+- [x] Repair Pulsar Kubernetes cluster TLS keys and JWT
+- [x] It provides Pulsar websocket proxy that sets token in the http parameter to http header
 ## Process running mode
 ```
 burnell -mode proxy
@@ -37,9 +37,9 @@ Token signing method and expiry duration can be passed as query parameters. The 
 /subject/{user-subject}?exp=<duration>&alg=<signMethod>
 ```
 The supported duration is d, y, and [ns, us, µs, ms, s, m, h defined by Go time package](https://golang.org/pkg/time/#ParseDuration)
-The supported signing method is sepcified at [here]()
+The supported signing method is specified [here]()
 
-Generated JWT can be validated by Pulsar unders the same encryption key scheme.
+Generated JWT can be validated by Pulsar under the same encryption key scheme.
 
 ### Tenant function log retrieval
 It provides a rolling log crawler from the function worker.
@@ -61,9 +61,9 @@ To retrieve earlier logs or newer logs, use query parameters `backwardpos` or `f
 ```
 /function-logs/{tenant}/{namespace}/{function-name}?backwardpos=45000
 ```
-It is client's responsiblity to keep track of the log file traverse position in both backward and forward position. The number must be a positive number. 0 value of `backwardpos` or `forwardpos` resets the `backwardpos` to EOF of the log file that displays the last few lines.
+It is client's responsibility to keep track of the log file traverse position in both backward and forward position. The number must be a positive number. 0 value of `backwardpos` or `forwardpos` resets the `backwardpos` to EOF of the log file that displays the last few lines.
 
-Since the algorithm always returns a few complete logs, the payload size can vary. Usualy the size ranges from one or two kilobytes.
+Since the algorithm always returns a few complete logs, the payload size can vary. Usually the size ranges from one or two kilobytes.
 ```
 {
     "BackwardPosition": 47987,
@@ -85,7 +85,7 @@ METHOD: GET
 ```
 /stats/topics/{tenant}?limit=10&offset=0
 ```
-A list of required topics can be specified in the request body. This feature is useful since this endpoint usually retreives topics from a local cache that has 5 seconds polling interval, the mandatory list will directly query these topics against the broker admin REST endpoint.
+A list of required topics can be specified in the request body. This feature is useful since this endpoint usually retrieves topics from a local cache that has 5 seconds polling interval, the mandatory list will directly query these topics against the broker admin REST endpoint.
 ```
 {"tenant":"ming-luo","sessionId":"reserverd for snapshot iteration","offset":1,"total":1,"data":{"persistent://ming-luo/namespace2/test-topic3":{"averageMsgSize":0,"backlogSize":0,"msgRateIn":0,"msgRateOut":0,"msgThroughputIn":0,"msgThroughputOut":0,"pendingAddEntriesCount":0,"producerCount":0,"publishers":[],"replication":{},"storageSize":0,"subscriptions":{"mysub":{"consumers":[],"msgBacklog":0,"msgRateExpired":0,"msgRateOut":0,"msgRateRedeliver":0,"msgThroughputOut":0,"numberOfEntriesSinceFirstNotAckedMessage":1,"totalNonContiguousDeletedMessagesRange":0,"type":"Exclusive"}}}}}
 ```
@@ -138,7 +138,7 @@ $ curl -v -X POST -H "Authorization: Bearer $MY_TOKEN" -d '{"planType": "free"}'
 {"name":"ming-luo","tenantStatus":1,"org":"","users":"","planType":"free","updatedAt":"2020-04-17T13:39:09.315634076-04:00","policy":{"name":"free","numOfTopics":5,"numOfNamespaces":1,"messageHourRetention":48,"messageRetention":172800000000000,"numofProducers":3,"numOfConsumers":5,"functions":1,"featureCodes":""},"audit":"initial creation,"}
 ```
 #### Update a tenant with a plan
-Update can upgrade or downgrade plan or specifiy individual plan attributes and feature code.
+Update can upgrade or downgrade plan or specify individual plan attributes and feature code.
 
 `policy.messageHourRetention` (integer) is the data retention period. `policy.messageRetention` is reserved internally for Golang retention in nano-seconds.
 
@@ -199,7 +199,7 @@ Scrape config offers `honor_labels: true` to honor the existing labels. It is op
 
 Without limit and offset query parameters, it will return the very first broker in the order broker's alphanumeric order.
 
-The new offset and total will be returned in the repsonse body.
+The new offset and total will be returned in the response body.
 
 ```
 {"total":1,"offset":1,"data":[{"broker":"10.244.1.221:8080","data":[{"...
