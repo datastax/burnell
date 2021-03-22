@@ -54,6 +54,20 @@ func NewRouter() *mux.Router {
 	router.PathPrefix("/ws/").Name("websocket proxy proxy").
 		Handler(http.HandlerFunc(WebsocketAuthProxyHandler))
 	router.Path("/metrics").Methods(http.MethodGet).Name("metrics").Handler(NoAuth(promhttp.Handler()))
+	// TODO rate limit can be added per route basis
+	router.Use(LimitRate)
+
+	router.Use(ResponseJSONContentType)
+
+	log.Warnf("router added")
+	return router
+}
+
+// PulsarAdminRouter is the pulsar-admin router
+func PulsarAdminRouter() *mux.Router {
+    log.Warnf("deprecated pulsar-admin proxy routes")
+
+	router := mux.NewRouter().StrictSlash(true)	
 	router.Path("/tenantsusage").Methods(http.MethodGet).Name("tenants usage").Handler(SuperRoleRequired(http.HandlerFunc(TenantUsageHandler)))
 	router.Path("/namespacesusage/{tenant}").Methods(http.MethodGet).Name("tenant namespaces usage").Handler(AuthVerifyTenantJWT(http.HandlerFunc(TenantUsageHandler)))
 	router.Path("/pulsarmetrics/{tenant}").Methods(http.MethodGet).Name("pulsar metrics").
