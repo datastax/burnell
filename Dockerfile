@@ -51,7 +51,7 @@ COPY --from=builder /go/bin/gops /home/appuser/bin
 
 RUN chown -R appuser:root /home/appuser
 
-#RUN chmod -R 777 /home/appuser
+RUN chmod -R 777 /home/appuser/config
 
 ENV GOPS_CONFIG_DIR /home/appuser/config
 
