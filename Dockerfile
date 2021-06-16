@@ -15,10 +15,7 @@ RUN go get github.com/google/gops
 
 # non-root
 
-#RUN useradd --create-home appuser
-#RUN /bin/sh -c adduser -D appuser users # buildkit
-
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+RUN adduser -S appuser -G root
 
 WORKDIR /home/appuser
 
@@ -29,11 +26,16 @@ RUN cd /home/appuser/src && \
   GIT_COMMIT=$(git rev-list -1 HEAD) && \
   go build -o burnell -ldflags "-X main.gitCommit=$GIT_COMMIT"
 
-RUN chown -R appuser:appgroup /home/appuser/src
-RUN chown -R appuser:appgroup /home/appuser
+RUN chown -R appuser:root /home/appuser
 
 ######## Start a new stage from scratch #######
 FROM alpine
+
+
+RUN adduser -S appuser -G root
+WORKDIR /home/appuser
+RUN chown -R appuser:root /home/appuser
+USER appuser
 
 # RUN apk update
 WORKDIR /home/appuser/bin
@@ -47,10 +49,10 @@ COPY --from=builder /home/appuser/src/unit-test/example_p* /home/appuser/config/
 # Copy debug tools
 COPY --from=builder /go/bin/gops /home/appuser/bin
 
-#RUN chown -R appuser:appgroup /home/appuser/src
-#RUN chown -R appuser:appgroup /home/appuser
-RUN chmod -R 777 /home/appuser
-USER appuser
+
+#RUN chmod -R 777 /home/appuser
+
+#USER appuser
 
 # Command to run the executable
 ENTRYPOINT ["./burnell"]
