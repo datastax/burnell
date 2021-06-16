@@ -35,7 +35,7 @@ FROM alpine
 RUN adduser -S appuser -G root
 WORKDIR /home/appuser
 RUN chown -R appuser:root /home/appuser
-USER appuser
+
 
 # RUN apk update
 WORKDIR /home/appuser/bin
@@ -49,10 +49,13 @@ COPY --from=builder /home/appuser/src/unit-test/example_p* /home/appuser/config/
 # Copy debug tools
 COPY --from=builder /go/bin/gops /home/appuser/bin
 
+RUN chown -R appuser:root /home/appuser
 
 #RUN chmod -R 777 /home/appuser
 
-#USER appuser
+ENV GOPS_CONFIG_DIR /home/appuser/config
+
+USER appuser
 
 # Command to run the executable
 ENTRYPOINT ["./burnell"]
