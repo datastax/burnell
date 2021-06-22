@@ -12,48 +12,33 @@ RUN apk --no-cache add build-base git
 # Build Delve
 RUN go get github.com/google/gops
 
-
-# non-root
-
-RUN adduser -S appuser -G root
-
-WORKDIR /home/appuser
-
-#USER appuser
-
-ADD . /home/appuser
-RUN cd /home/appuser/src && \
+WORKDIR /root/
+ADD . /root
+RUN cd /root/src && \
   GIT_COMMIT=$(git rev-list -1 HEAD) && \
   go build -o burnell -ldflags "-X main.gitCommit=$GIT_COMMIT"
-
-RUN chown -R appuser:root /home/appuser
 
 ######## Start a new stage from scratch #######
 FROM alpine
 
-
-RUN adduser -S appuser -G root
-WORKDIR /home/appuser
-RUN chown -R appuser:root /home/appuser
-
+# Default to the root group for openshift compatibility.
+RUN adduser -u 10001 -S appuser -G root
 
 # RUN apk update
 WORKDIR /home/appuser/bin
 RUN mkdir /home/appuser/config/
 
 # Copy the Pre-built binary file and default configuraitons from the previous stage
-COPY --from=builder /home/appuser/src/burnell /home/appuser/bin
-COPY --from=builder /home/appuser/config/burnell.yml.template /home/appuser/config/burnell.yml
-COPY --from=builder /home/appuser/src/unit-test/example_p* /home/appuser/config/
+COPY --from=builder /root/src/burnell /home/appuser/bin
+COPY --from=builder /root/config/burnell.yml.template /home/appuser/config/burnell.yml
+COPY --from=builder /root/src/unit-test/example_p* /home/appuser/config/
 
 # Copy debug tools
 COPY --from=builder /go/bin/gops /home/appuser/bin
 
-RUN chown -R appuser:root /home/appuser
-
-RUN chmod -R 777 /home/appuser/config
-
-ENV GOPS_CONFIG_DIR /home/appuser/config
+# Required for openshift compatibility (the go process writes a config file to the home directory)
+RUN chmod g+w /home/appuser
+ENV GOPS_CONFIG_DIR /home/appuser
 
 USER appuser
 
