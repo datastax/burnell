@@ -38,7 +38,7 @@ COPY --from=builder /go/bin/gops /home/appuser/bin
 
 # Required for openshift compatibility (the go process writes a config file to the home directory)
 RUN chmod g+w /home/appuser
-ENV GOPS_CONFIG_DIR /home/appuser
+ENV HOME /home/appuser
 
 USER appuser
 
