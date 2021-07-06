@@ -1,23 +1,23 @@
- //
- //  Copyright (c) 2021 Datastax, Inc.
- //  
- //  Licensed to the Apache Software Foundation (ASF) under one
- //  or more contributor license agreements.  See the NOTICE file
- //  distributed with this work for additional information
- //  regarding copyright ownership.  The ASF licenses this file
- //  to you under the Apache License, Version 2.0 (the
- //  "License"); you may not use this file except in compliance
- //  with the License.  You may obtain a copy of the License at
- //  
- //     http://www.apache.org/licenses/LICENSE-2.0
- //  
- //  Unless required by applicable law or agreed to in writing,
- //  software distributed under the License is distributed on an
- //  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- //  KIND, either express or implied.  See the License for the
- //  specific language governing permissions and limitations
- //  under the License.
- //
+//
+//  Copyright (c) 2021 Datastax, Inc.
+//
+//  Licensed to the Apache Software Foundation (ASF) under one
+//  or more contributor license agreements.  See the NOTICE file
+//  distributed with this work for additional information
+//  regarding copyright ownership.  The ASF licenses this file
+//  to you under the Apache License, Version 2.0 (the
+//  "License"); you may not use this file except in compliance
+//  with the License.  You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+//  Unless required by applicable law or agreed to in writing,
+//  software distributed under the License is distributed on an
+//  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+//  KIND, either express or implied.  See the License for the
+//  specific language governing permissions and limitations
+//  under the License.
+//
 
 package workflow
 
@@ -101,7 +101,6 @@ var defaultRoleString = []string{"admin", "proxy", "superuser", "websocket"}
 type Cluster struct {
 	ClusterName          string `json:"clusterName"`
 	KeysAndJWT           Step   `json:"keysAndJwt"`
-	K8sNamespaces        Step   `json:"k8sNamespaces"`
 	PulsarNamespace      string
 	CertManagerNamespace string
 	MonitoringNamespace  string
@@ -155,17 +154,10 @@ func (m *Cluster) Create() error {
 	}
 	m.l.Infof("RSA public and private keys are created")
 
-	// 2. create k8s cluster namespace
-	k8sNamespace, err := k8s.LocalClient.CreatePulsarNamespace(m.PulsarNamespace)
-	if k8sNamespace == "" {
-		m.K8sNamespaces.Status = Failed
-		return err
-	}
-	m.K8sNamespaces.Status = Succeeded
-	m.l.Infof("kubernetes namespace %s is created", m.PulsarNamespace)
+	m.l.Infof("Using kubernetes namespace '%s'", m.PulsarNamespace)
 
 	// 3. create and upload keys and jwt
-	if err := keysAndJWTs.Create(k8sNamespace, m.PrivateKeyFileName, m.PublicKeyFileName); err != nil {
+	if err := keysAndJWTs.Create(m.PulsarNamespace, m.PrivateKeyFileName, m.PublicKeyFileName); err != nil {
 		m.KeysAndJWT.Status = Failed
 		return err
 	}
@@ -177,13 +169,7 @@ func (m *Cluster) Create() error {
 // Healer monitors and repairs any missing keys and jwt
 func (m *Cluster) Healer() error {
 	m.l.Infof("cluster %v", m)
-	k8sNamespace, err := k8s.LocalClient.CreatePulsarNamespace(m.PulsarNamespace)
-	if k8sNamespace == "" {
-		m.K8sNamespaces.Status = Failed
-		return err
-	}
-	m.K8sNamespaces.Status = Succeeded
-	m.l.Infof("kubernetes namespace %s is verified", m.PulsarNamespace)
+	m.l.Infof("Using kubernetes namespace '%s'", m.PulsarNamespace)
 
 	privateKey, err := getKeyFromSecret(m.PulsarNamespace, tokenPrivateKey, m.PrivateKeyFileName)
 	if err != nil {
@@ -212,7 +198,7 @@ func (m *Cluster) Healer() error {
 	m.l.Infof("RSA public and private keys are fetched")
 
 	// create and upload keys and jwt
-	if err := keysAndJWTs.Repair(k8sNamespace, m.ClusterName); err != nil {
+	if err := keysAndJWTs.Repair(m.PulsarNamespace, m.ClusterName); err != nil {
 		m.KeysAndJWT.Status = Failed
 		return err
 	}
