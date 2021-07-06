@@ -162,7 +162,7 @@ func (m *Cluster) Create() error {
 		return err
 	}
 	m.KeysAndJWT.Status = Succeeded
-	m.l.Infof("keys and tokens are created and exported to kubernets secrets")
+	m.l.Infof("keys and tokens are created and exported to kubernetes secrets")
 	return nil
 }
 
@@ -218,7 +218,7 @@ func (kj *KeysJWTs) Create(k8sNamespace, privateKeyName, publicKeyName string) e
 		map[string][]byte{
 			publicKeyName: kj.KeyManager.PublicKeyPKIXBytes,
 		})
-	kj.l.Infof("successfully exported token private and public key as k8s secrets under namesapce %s", k8sNamespace)
+	kj.l.Infof("successfully exported token private and public key as k8s secrets under namespace %s", k8sNamespace)
 
 	for _, v := range getAdminRoles() {
 		role := strings.TrimSpace(v)
@@ -234,7 +234,7 @@ func (kj *KeysJWTs) Create(k8sNamespace, privateKeyName, publicKeyName string) e
 			role + JWTFileExtension: []byte(tokenString),
 		}
 		k8s.LocalClient.CreateSecret(k8sNamespace, k8sSecretName, data)
-		kj.l.Infof("successfully exported %s token to secret %s under k8s namesapce %s", role, k8sSecretName, k8sNamespace)
+		kj.l.Infof("successfully exported %s token to secret %s under k8s namespace %s", role, k8sSecretName, k8sNamespace)
 	}
 
 	return nil
