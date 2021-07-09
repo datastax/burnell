@@ -39,7 +39,7 @@ COPY --from=builder /go/bin/gops /home/appuser/bin
 # Required for openshift compatibility (the go process writes a config file to the home directory)
 RUN chmod g+w /home/appuser
 ENV HOME /home/appuser
-
+ENV BURNELL_CONFIG /home/appuser/config/burnell.yml
 USER appuser
 
 # Command to run the executable

@@ -7,7 +7,8 @@ AdminRestPrefix: "/admin/v2"
 PulsarPublicKey:
 PulsarPrivateKey:
 PulsarToken:
-PulsarURL :
+PulsarURL:
+PulsarNamespace: "pulsar"
 FederatedPromURL:
 SuperRoles:
 TenantManagmentTopic: "persistent://ming-luo/local-useast1-gcp/test-tenant-management"
