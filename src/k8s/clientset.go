@@ -1,23 +1,23 @@
- //
- //  Copyright (c) 2021 Datastax, Inc.
- //  
- //  Licensed to the Apache Software Foundation (ASF) under one
- //  or more contributor license agreements.  See the NOTICE file
- //  distributed with this work for additional information
- //  regarding copyright ownership.  The ASF licenses this file
- //  to you under the Apache License, Version 2.0 (the
- //  "License"); you may not use this file except in compliance
- //  with the License.  You may obtain a copy of the License at
- //  
- //     http://www.apache.org/licenses/LICENSE-2.0
- //  
- //  Unless required by applicable law or agreed to in writing,
- //  software distributed under the License is distributed on an
- //  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- //  KIND, either express or implied.  See the License for the
- //  specific language governing permissions and limitations
- //  under the License.
- //
+//
+//  Copyright (c) 2021 Datastax, Inc.
+//
+//  Licensed to the Apache Software Foundation (ASF) under one
+//  or more contributor license agreements.  See the NOTICE file
+//  distributed with this work for additional information
+//  regarding copyright ownership.  The ASF licenses this file
+//  to you under the Apache License, Version 2.0 (the
+//  "License"); you may not use this file except in compliance
+//  with the License.  You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+//  Unless required by applicable law or agreed to in writing,
+//  software distributed under the License is distributed on an
+//  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+//  KIND, either express or implied.  See the License for the
+//  specific language governing permissions and limitations
+//  under the License.
+//
 
 package k8s
 
@@ -36,17 +36,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
 	metrics "k8s.io/metrics/pkg/client/clientset/versioned"
-)
-
-const (
-	// DefaultPulsarNamespace is the default pulsar namespace in the cluster
-	DefaultPulsarNamespace = "pulsar"
-
-	// PulsarNamespacePrefix is the prefix of the Pulsar cluster namespace
-	PulsarNamespacePrefix = "pulsar-"
-
-	// DeployerNamespace is the deployer namespace
-	DeployerNamespace = "deployer"
 )
 
 // Client is the k8s client object
@@ -183,45 +172,6 @@ func (c *Client) VerifySecret(k8sNamespace, secretName string) error {
 		return nil
 	}
 	return fmt.Errorf("unable to find secret %s under namespace %s", secretName, k8sNamespace)
-}
-
-// GetNamespacesNames gets names of all namespaces
-func (c *Client) GetNamespacesNames() (map[string]bool, error) {
-	names := make(map[string]bool)
-	namespaces := c.Clientset.CoreV1().Namespaces()
-	nsList, err := namespaces.List(context.TODO(), meta_v1.ListOptions{})
-	if err != nil {
-		return names, nil
-	}
-	for _, item := range nsList.Items {
-		names[item.ObjectMeta.Name] = true
-	}
-	return names, nil
-}
-
-// CreatePulsarNamespace creates a namespace for a Pulsar cluster, return namespace name
-func (c *Client) CreatePulsarNamespace(name string) (string, error) {
-	nsMap, err := c.GetNamespacesNames()
-	if err != nil {
-		return "", err
-	}
-
-	namespaceName := name
-	if nsMap[namespaceName] {
-		return namespaceName, fmt.Errorf("namespace %s already exists", namespaceName)
-	}
-
-	namespaces := c.Clientset.CoreV1().Namespaces()
-	nsSpec := &core_v1.Namespace{
-		ObjectMeta: meta_v1.ObjectMeta{
-			Name: namespaceName,
-		},
-	}
-	_, err = namespaces.Create(context.TODO(), nsSpec, meta_v1.CreateOptions{})
-	if err != nil {
-		return "", err
-	}
-	return namespaceName, nil
 }
 
 func (c *Client) getDeployments(namespace, component string) (*v1.DeploymentList, error) {
