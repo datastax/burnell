@@ -19,7 +19,7 @@ RUN cd /root/src && \
   go build -o burnell -ldflags "-X main.gitCommit=$GIT_COMMIT"
 
 ######## Start a new stage from scratch #######
-FROM alpine:3.7
+FROM alpine:3.14
 
 # Default to the root group for openshift compatibility.
 RUN adduser -u 10001 -S appuser -G root
