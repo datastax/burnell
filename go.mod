@@ -13,7 +13,7 @@ require (
 	github.com/gorilla/mux v1.7.4
 	github.com/gorilla/websocket v1.4.2
 	github.com/hashicorp/go-memdb v1.2.1
-	github.com/kafkaesque-io/pulsar-beam v0.0.2-0.20220118145832-9568632df238
+	github.com/kafkaesque-io/pulsar-beam v0.0.2-0.20220118204327-cae0c220d4ac
 	github.com/koding/websocketproxy v0.0.0-20181220232114-7ed82d81a28c
 	github.com/prometheus/client_golang v1.11.0
 	github.com/prometheus/common v0.26.0
@@ -38,7 +38,6 @@ require (
 	github.com/danieljoos/wincred v1.0.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dvsekhvalnov/jose2go v0.0.0-20200901110807-248326c1351b // indirect
-	github.com/form3tech-oss/jwt-go v3.2.3+incompatible // indirect
 	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/godbus/dbus v0.0.0-20190726142602-4481cbc300e2 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
@@ -94,3 +93,8 @@ require (
 	sigs.k8s.io/structured-merge-diff/v3 v3.0.0 // indirect
 	sigs.k8s.io/yaml v1.2.0 // indirect
 )
+
+// temporary pulsar client until https://github.com/apache/pulsar-client-go/pull/238 can be merged
+replace github.com/apache/pulsar-client-go/oauth2 => github.com/zzzming/pulsar-client-go/oauth2 v0.0.0-20220118161656-73e4b6371a36
+
+replace github.com/apache/pulsar-client-go => github.com/zzzming/pulsar-client-go v0.0.0-20220118161656-73e4b6371a36
