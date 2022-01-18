@@ -30,7 +30,7 @@ import (
 	"github.com/datastax/burnell/src/icrypto"
 	"github.com/datastax/burnell/src/k8s"
 	"github.com/datastax/burnell/src/util"
-	"github.com/dgrijalva/jwt-go"
+	"github.com/golang-jwt/jwt"
 )
 
 // StepStatus is the k8s Pulsar cluster runtime status
