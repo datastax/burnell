@@ -98,3 +98,5 @@ require (
 replace github.com/apache/pulsar-client-go/oauth2 => github.com/zzzming/pulsar-client-go/oauth2 v0.0.0-20220118161656-73e4b6371a36
 
 replace github.com/apache/pulsar-client-go => github.com/zzzming/pulsar-client-go v0.0.0-20220118161656-73e4b6371a36
+
+replace github.com/miekg/dns => github.com/miekg/dns v1.1.25
