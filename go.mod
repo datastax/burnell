@@ -15,7 +15,7 @@ require (
 	github.com/hashicorp/go-memdb v1.2.1
 	github.com/kafkaesque-io/pulsar-beam v0.0.2-0.20220118204327-cae0c220d4ac
 	github.com/koding/websocketproxy v0.0.0-20181220232114-7ed82d81a28c
-	github.com/prometheus/client_golang v1.11.0
+	github.com/prometheus/client_golang v1.11.1
 	github.com/prometheus/common v0.26.0
 	github.com/rs/cors v1.7.0
 	github.com/samuel/go-zookeeper v0.0.0-20190923202752-2cc03de413da
