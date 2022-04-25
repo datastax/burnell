@@ -4,7 +4,7 @@ go 1.17
 
 require (
 	github.com/allegro/bigcache v1.2.1
-	github.com/apache/pulsar-client-go v0.7.1-0.20220117080525-a119bab0f859
+	github.com/apache/pulsar-client-go v0.8.1
 	github.com/apex/log v1.1.2
 	github.com/ghodss/yaml v1.0.0
 	github.com/golang-jwt/jwt v3.2.2+incompatible
@@ -31,7 +31,7 @@ require (
 	github.com/99designs/keyring v1.1.6 // indirect
 	github.com/AthenZ/athenz v1.10.39 // indirect
 	github.com/DataDog/zstd v1.5.0 // indirect
-	github.com/apache/pulsar-client-go/oauth2 v0.0.0-20220117080525-a119bab0f859 // indirect
+	github.com/apache/pulsar-client-go/oauth2 v0.0.0-20220120090717-25e59572242e // indirect
 	github.com/ardielle/ardielle-go v1.5.2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
@@ -93,11 +93,6 @@ require (
 	sigs.k8s.io/structured-merge-diff/v3 v3.0.0 // indirect
 	sigs.k8s.io/yaml v1.2.0 // indirect
 )
-
-// temporary pulsar client until https://github.com/apache/pulsar-client-go/pull/238 can be merged
-replace github.com/apache/pulsar-client-go/oauth2 => github.com/zzzming/pulsar-client-go/oauth2 v0.0.0-20220118161656-73e4b6371a36
-
-replace github.com/apache/pulsar-client-go => github.com/zzzming/pulsar-client-go v0.0.0-20220118161656-73e4b6371a36
 
 replace github.com/miekg/dns => github.com/miekg/dns v1.1.25
 
