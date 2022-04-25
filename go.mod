@@ -97,3 +97,7 @@ require (
 replace github.com/miekg/dns => github.com/miekg/dns v1.1.25
 
 replace github.com/aws/aws-sdk-go => github.com/aws/aws-sdk-go v1.34.0
+
+replace github.com/apache/pulsar-client-go v0.7.1-0.20220117080525-a119bab0f859 => github.com/apache/pulsar-client-go v0.8.1
+
+replace github.com/apache/pulsar-client-go/oauth2 v0.0.0-20211108044248-fe3b7c4e445b => github.com/apache/pulsar-client-go/oauth2 v0.0.0-20220120090717-25e59572242e
